@@ -18,11 +18,13 @@ export const codeAgentFunction = inngest.createFunction(
   { event: "code-agent/run" },
   async ({ event, step }) => {
     const sandboxId = await step.run("get-sandbox-id", async () => {
+      console.log("[codeAgentFunction] Creating sandbox...");
       try {
         const sandbox = await Sandbox.create("nextjs-demo-1274");
+        console.log("[codeAgentFunction] Sandbox created with ID:", sandbox.sandboxId);
         return sandbox.sandboxId;
       } catch (error) {
-        console.error("Failed to create sandbox:", error);
+        console.error("[codeAgentFunction] Failed to create sandbox:", error);
         throw new Error("Sandbox creation failed");
       }
     });
@@ -61,6 +63,8 @@ export const codeAgentFunction = inngest.createFunction(
         messages: previousMessages,
       }
     );
+
+    console.log("[codeAgentFunction] Initializing agent network...");
 
     const codeAgent = createAgent<AgentState>({
       name: "code-agent",
@@ -184,7 +188,9 @@ export const codeAgentFunction = inngest.createFunction(
       },
     });
 
+    console.log("[codeAgentFunction] Running network for input:", event.data.value);
     const result = await network.run(event.data.value , {state});
+    console.log("[codeAgentFunction] Network run complete. Summary length:", result.state.data.summary?.length || 0);
 
       const fragmentTitleGenerator = createAgent({
       name: "fragment-title-generator",
@@ -214,9 +220,12 @@ export const codeAgentFunction = inngest.createFunction(
       Object.keys(result.state.data.files || {}).length === 0;
 
     const sandboxUrl = await step.run("get-sandbox-url", async () => {
+      console.log("[codeAgentFunction] Getting sandbox URL for ID:", sandboxId);
       const sandbox = await getSandbox(sandboxId);
       const host = sandbox.getHost(3000);
-      return `https://${host}`;
+      const url = `https://${host}`;
+      console.log("[codeAgentFunction] Sandbox URL:", url);
+      return url;
     });
 
     await step.run("save-result", async () => {
