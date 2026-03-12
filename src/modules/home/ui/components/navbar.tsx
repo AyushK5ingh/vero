@@ -1,12 +1,15 @@
 "use client";
 
-import { SignedIn, SignedOut, SignInButton, SignUpButton } from "@clerk/nextjs";
+import { Show, SignInButton, SignUpButton } from "@clerk/nextjs";
 import Link from "next/link";
 import Image from "next/image";
 import { Button } from "@/components/ui/button";
 import { UserControl } from "@/components/user-control";
 import { useScroll } from "@/hooks/use-scroll";
 import { cn } from "@/lib/utils";
+
+
+
 
 export const Navbar = () => {
   const isScrolled = useScroll();
@@ -22,7 +25,7 @@ export const Navbar = () => {
           <Image src="/logo.svg" alt="Vero" width={24} height={24} />
           <span className="font-medium text-lg">Vero</span>
         </Link>
-        <SignedOut>
+        <Show when="signed-out">
           <div className="flex gap-2">
             <SignUpButton>
               <Button variant="outline" size="sm">
@@ -33,10 +36,11 @@ export const Navbar = () => {
               <Button size="sm">Sign In</Button>
             </SignInButton>
           </div>
-        </SignedOut>
-        <SignedIn>
+        </Show>
+        <Show when="signed-in">
           <UserControl showName />
-        </SignedIn>
+        </Show>
+
       </div>
     </nav>
   );
