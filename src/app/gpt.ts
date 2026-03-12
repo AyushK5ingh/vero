@@ -1,37 +1,43 @@
-// "use server"
-// // import { auth, clerkClient } from "@clerk/nextjs/server";
-// import OpenAI from "openai";
+"use server";
 
-// const token = process.env.OPENAI_API_KEY;
-// const endpoint = "https://models.github.ai/inference";
-// const model = "openai/gpt-4.1";
+import ModelClient, { isUnexpected } from "@azure-rest/ai-inference";
+import { AzureKeyCredential } from "@azure/core-auth";
 
-// export async function main() {
+const token = process.env.GITHUB_TOKEN!;
+const endpoint = "https://models.github.ai/inference";
+const model = "gpt-4o";
 
-//   const client = new OpenAI({ baseURL: endpoint, apiKey: token });
+export async function askAI(systemPrompt: string, userQuery: string) {
+  try {
+    const client = ModelClient(
+      endpoint,
+      new AzureKeyCredential(token),
+    );
 
-//   const response = await client.chat.completions.create({
-//     messages: [
-//         { role:"system", content: systemPrompt },
-//         { role:"user", content: userQuery }
-//       ],
-//       temperature: 1.0,
-//       top_p: 1.0,
-//       model: model
-//     });
+    const response = await client.path("/chat/completions").post({
+      body: {
+        messages: [
+          { role: "system", content: systemPrompt },
+          { role: "user", content: userQuery }
+        ],
+        temperature: 1,
+        top_p: 1,
+        model: model
+      }
+    });
 
-//   console.log(response.choices[0].message.content);
-//   return {
-//     message : response.choices[0].message.content,
-//   };
+    if (isUnexpected(response)) {
+      throw response.body.error;
+    }
 
-//   // const { userId } = await auth()
-//   //     if (!userId) {
-//   //          return;
-//   //     }
-//   //     console.log(userId)
-//   //   const user = await clerkClient.users.getUser(userId)
-//   //   const githubTokens = await clerkClient.users.getUserOauthAccessToken(userId, "github");
-
-//   //   console.log(user , githubTokens)
-// }
+    const content = response.body.choices[0].message.content;
+    console.log("AI Response:", content);
+    
+    return {
+      message: content,
+    };
+  } catch (error) {
+    console.error("AI Error:", error);
+    throw error;
+  }
+}
