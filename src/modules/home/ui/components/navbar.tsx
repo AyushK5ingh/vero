@@ -1,6 +1,6 @@
 "use client";
 
-import { Show, SignInButton, SignUpButton } from "@clerk/nextjs";
+import { SignedIn, SignedOut, SignInButton, SignUpButton } from "@clerk/nextjs";
 import Link from "next/link";
 import Image from "next/image";
 import { Button } from "@/components/ui/button";
@@ -25,7 +25,7 @@ export const Navbar = () => {
           <Image src="/logo.svg" alt="Vero" width={24} height={24} />
           <span className="font-medium text-lg">Vero</span>
         </Link>
-        <Show when="signed-out">
+        <SignedOut>
           <div className="flex gap-2">
             <SignUpButton>
               <Button variant="outline" size="sm">
@@ -36,10 +36,10 @@ export const Navbar = () => {
               <Button size="sm">Sign In</Button>
             </SignInButton>
           </div>
-        </Show>
-        <Show when="signed-in">
+        </SignedOut>
+        <SignedIn>
           <UserControl showName />
-        </Show>
+        </SignedIn>
 
       </div>
     </nav>
