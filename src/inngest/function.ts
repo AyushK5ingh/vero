@@ -282,7 +282,7 @@ export const codeAgentFunction = inngest.createFunction(
           );
 
           const waitResult = await sandbox.commands.run(
-            'sh -c "i=0; while [ $i -lt 60 ]; do if command -v curl >/dev/null 2>&1 && curl -fsS --max-time 2 http://127.0.0.1:3000 >/dev/null; then echo READY; break; fi; i=$((i+1)); sleep 1; done; if [ $i -ge 60 ]; then echo FAILED; tail -n 80 /tmp/preview-server.log || true; fi"',
+            'sh -c "i=0; while [ \"\$i\" -lt 60 ]; do if command -v curl >/dev/null 2>&1 && curl -fsS --max-time 2 http://127.0.0.1:3000 >/dev/null; then echo READY; break; fi; i=\$((i+1)); sleep 1; done; if [ \"\$i\" -ge 60 ]; then echo FAILED; tail -n 80 /tmp/preview-server.log || true; fi"',
           );
 
           const logs = `${waitResult.stdout || ""}\n${waitResult.stderr || ""}`;
