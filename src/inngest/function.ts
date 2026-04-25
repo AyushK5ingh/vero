@@ -445,7 +445,7 @@ export const codeAgentFunction = inngest.createFunction(
           }
 
           await runCommand(
-            `sh -c "cd ${quotedRoot} && if [ -f pnpm-lock.yaml ] && command -v pnpm >/dev/null 2>&1; then nohup sh -c \\\"pnpm install --no-frozen-lockfile && pnpm dev --host 0.0.0.0 --port 3000\\\" >/tmp/preview-server.log 2>&1 & elif [ -f yarn.lock ] && command -v yarn >/dev/null 2>&1; then nohup sh -c \\\"yarn install && yarn dev --host 0.0.0.0 --port 3000\\\" >/tmp/preview-server.log 2>&1 & elif command -v npm >/dev/null 2>&1; then nohup sh -c \\\"npm install --yes && npm run dev -- --hostname 0.0.0.0 --port 3000\\\" >/tmp/preview-server.log 2>&1 & else echo NO_PM_AVAILABLE; fi"`,
+            `sh -c "cd ${quotedRoot} && if [ -f pnpm-lock.yaml ] && command -v pnpm >/dev/null 2>&1; then nohup sh -c \\\"pnpm install --no-frozen-lockfile && pnpm dev --host 0.0.0.0 --port 3000\\\" >/tmp/preview-server.log 2>&1 & elif [ -f pnpm-lock.yaml ] && command -v corepack >/dev/null 2>&1; then nohup sh -c \\\"corepack pnpm install --no-frozen-lockfile && corepack pnpm dev --host 0.0.0.0 --port 3000\\\" >/tmp/preview-server.log 2>&1 & elif [ -f yarn.lock ] && command -v yarn >/dev/null 2>&1; then nohup sh -c \\\"yarn install && yarn dev --host 0.0.0.0 --port 3000\\\" >/tmp/preview-server.log 2>&1 & elif command -v npm >/dev/null 2>&1; then nohup sh -c \\\"npm install --yes && npm run dev -- --hostname 0.0.0.0 --port 3000\\\" >/tmp/preview-server.log 2>&1 & else echo NO_PM_AVAILABLE; fi"`,
             30000,
           );
 
