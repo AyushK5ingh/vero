@@ -44,22 +44,28 @@ export function getModelProviderConfig(): ModelProviderConfig {
   }
 
   const model =
-    process.env.AWS_MODEL ||
     process.env.AI_MODEL ||
+    process.env.AWS_MODEL ||
     process.env.GITHUB_MODEL ||
     "openai/gpt-4.1-mini";
 
   const baseUrl =
     source === "AWS_API_KEY"
-      ? process.env.AWS_MODELS_BASE_URL || process.env.AI_BASE_URL || ""
+      ? process.env.AWS_MODELS_BASE_URL ||
+        process.env.AI_BASE_URL ||
+        process.env.GITHUB_MODELS_BASE_URL ||
+        "https://models.github.ai/inference"
       : source === "AI_API_KEY"
-        ? process.env.AI_BASE_URL || process.env.AWS_MODELS_BASE_URL || ""
+        ? process.env.AI_BASE_URL ||
+          process.env.AWS_MODELS_BASE_URL ||
+          process.env.GITHUB_MODELS_BASE_URL ||
+          "https://models.github.ai/inference"
         : process.env.GITHUB_MODELS_BASE_URL ||
           "https://models.github.ai/inference";
 
   if (!baseUrl) {
     throw new Error(
-      `Missing model base URL for ${source}. Set AWS_MODELS_BASE_URL or AI_BASE_URL.`,
+      `Missing model base URL for ${source}. Set AWS_MODELS_BASE_URL, AI_BASE_URL, or GITHUB_MODELS_BASE_URL.`,
     );
   }
 

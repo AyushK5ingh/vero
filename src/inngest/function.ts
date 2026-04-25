@@ -317,11 +317,33 @@ export const codeAgentFunction = inngest.createFunction(
         async () => {
           const sandbox = await getSandbox(sandboxId);
 
-          const probe = await sandbox.commands.run(
+          const runCommand = async (command: string, timeoutMs: number) => {
+            try {
+              return await sandbox.commands.run(command, { timeoutMs });
+            } catch (error) {
+              const message =
+                error instanceof Error ? error.message : String(error);
+
+              // Some templates may not expose /bin/sh; retry with bash when possible.
+              if (command.startsWith('sh -c "')) {
+                try {
+                  const bashCommand = command.replace(/^sh -c /, "bash -lc ");
+                  return await sandbox.commands.run(bashCommand, { timeoutMs });
+                } catch {
+                  // Fall through to return captured error below.
+                }
+              }
+
+              return {
+                stdout: "",
+                stderr: message,
+              } as { stdout: string; stderr: string };
+            }
+          };
+
+          const probe = await runCommand(
             'sh -c "if command -v curl >/dev/null 2>&1 && curl -fs --max-time 2 http://127.0.0.1:3000 >/dev/null 2>&1; then echo READY; else echo CLOSED; fi"',
-            {
-              timeoutMs: 10000,
-            },
+            10000,
           );
 
           if ((probe.stdout || "").includes("READY")) {
@@ -335,11 +357,9 @@ export const codeAgentFunction = inngest.createFunction(
             "[codeAgentFunction] Starting preview server on port 3000...",
           );
 
-          const projectRootResult = await sandbox.commands.run(
+          const projectRootResult = await runCommand(
             'sh -c "ROOT=; for d in /home/user /workspace /app /home/user/app /home/user/project /tmp; do if [ -f \"$d/package.json\" ]; then ROOT=\"$d\"; break; fi; done; if [ -z \"$ROOT\" ]; then PKG=$(find /home /workspace /app /tmp -maxdepth 8 -name package.json 2>/dev/null | head -n 1); if [ -n \"$PKG\" ]; then ROOT=$(dirname \"$PKG\"); fi; fi; if [ -z \"$ROOT\" ]; then APPFILE=$(find /home /workspace /app /tmp -maxdepth 8 \( -path \"*/app/page.tsx\" -o -path \"*/app/layout.tsx\" \) 2>/dev/null | head -n 1); if [ -n \"$APPFILE\" ]; then ROOT=$(dirname $(dirname \"$APPFILE\")); fi; fi; echo \"$ROOT\""',
-            {
-              timeoutMs: 10000,
-            },
+            10000,
           );
 
           let projectRoot = (projectRootResult.stdout || "")
@@ -354,11 +374,9 @@ export const codeAgentFunction = inngest.createFunction(
 
           const quotedRoot = JSON.stringify(projectRoot);
 
-          const hasPackageJsonResult = await sandbox.commands.run(
+          const hasPackageJsonResult = await runCommand(
             `sh -c "if [ -f ${quotedRoot}/package.json ]; then echo HAS_PKG; else echo NO_PKG; fi"`,
-            {
-              timeoutMs: 10000,
-            },
+            10000,
           );
 
           const hasPackageJson = (hasPackageJsonResult.stdout || "").includes(
@@ -371,9 +389,7 @@ export const codeAgentFunction = inngest.createFunction(
               projectRoot,
             );
 
-            await sandbox.commands.run(`sh -c "mkdir -p ${quotedRoot}/app"`, {
-              timeoutMs: 10000,
-            });
+            await runCommand(`sh -c "mkdir -p ${quotedRoot}/app"`, 10000);
 
             await sandbox.files.write(
               `${projectRoot}/package.json`,
@@ -403,11 +419,9 @@ export const codeAgentFunction = inngest.createFunction(
               ),
             );
 
-            const hasLayoutResult = await sandbox.commands.run(
+            const hasLayoutResult = await runCommand(
               `sh -c "if [ -f ${quotedRoot}/app/layout.tsx ] || [ -f ${quotedRoot}/src/app/layout.tsx ]; then echo HAS_LAYOUT; else echo NO_LAYOUT; fi"`,
-              {
-                timeoutMs: 10000,
-              },
+              10000,
             );
 
             if (!(hasLayoutResult.stdout || "").includes("HAS_LAYOUT")) {
@@ -417,11 +431,9 @@ export const codeAgentFunction = inngest.createFunction(
               );
             }
 
-            const hasPageResult = await sandbox.commands.run(
+            const hasPageResult = await runCommand(
               `sh -c "if [ -f ${quotedRoot}/app/page.tsx ] || [ -f ${quotedRoot}/src/app/page.tsx ]; then echo HAS_PAGE; else echo NO_PAGE; fi"`,
-              {
-                timeoutMs: 10000,
-              },
+              10000,
             );
 
             if (!(hasPageResult.stdout || "").includes("HAS_PAGE")) {
@@ -432,18 +444,14 @@ export const codeAgentFunction = inngest.createFunction(
             }
           }
 
-          await sandbox.commands.run(
-            `sh -c "cd ${quotedRoot} && if [ -f pnpm-lock.yaml ]; then nohup sh -c \\\"pnpm install --no-frozen-lockfile && pnpm dev --host 0.0.0.0 --port 3000\\\" >/tmp/preview-server.log 2>&1 & elif [ -f package-lock.json ]; then nohup sh -c \\\"npm install --yes && npm run dev -- --hostname 0.0.0.0 --port 3000\\\" >/tmp/preview-server.log 2>&1 & elif [ -f yarn.lock ]; then nohup sh -c \\\"yarn install && yarn dev --host 0.0.0.0 --port 3000\\\" >/tmp/preview-server.log 2>&1 & else nohup sh -c \\\"npm install --yes && npm run dev -- --hostname 0.0.0.0 --port 3000\\\" >/tmp/preview-server.log 2>&1 & fi"`,
-            {
-              timeoutMs: 30000,
-            },
+          await runCommand(
+            `sh -c "cd ${quotedRoot} && if [ -f pnpm-lock.yaml ] && command -v pnpm >/dev/null 2>&1; then nohup sh -c \\\"pnpm install --no-frozen-lockfile && pnpm dev --host 0.0.0.0 --port 3000\\\" >/tmp/preview-server.log 2>&1 & elif [ -f yarn.lock ] && command -v yarn >/dev/null 2>&1; then nohup sh -c \\\"yarn install && yarn dev --host 0.0.0.0 --port 3000\\\" >/tmp/preview-server.log 2>&1 & elif command -v npm >/dev/null 2>&1; then nohup sh -c \\\"npm install --yes && npm run dev -- --hostname 0.0.0.0 --port 3000\\\" >/tmp/preview-server.log 2>&1 & else echo NO_PM_AVAILABLE; fi"`,
+            30000,
           );
 
-          const waitResult = await sandbox.commands.run(
+          const waitResult = await runCommand(
             'sh -c "for n in 1 2 3 4 5 6 7 8 9 10 11 12 13 14 15 16 17 18 19 20 21 22 23 24 25 26 27 28 29 30 31 32 33 34 35 36 37 38 39 40 41 42 43 44 45 46 47 48 49 50 51 52 53 54 55 56 57 58 59 60 61 62 63 64 65 66 67 68 69 70 71 72 73 74 75 76 77 78 79 80 81 82 83 84 85 86 87 88 89 90 91 92 93 94 95 96 97 98 99 100 101 102 103 104 105 106 107 108 109 110 111 112 113 114 115 116 117 118 119 120; do if command -v curl >/dev/null 2>&1 && curl -fs --max-time 2 http://127.0.0.1:3000 >/dev/null 2>&1; then echo READY; break; fi; sleep 1; done; if ! command -v curl >/dev/null 2>&1 || ! curl -fs --max-time 2 http://127.0.0.1:3000 >/dev/null 2>&1; then echo FAILED; tail -n 120 /tmp/preview-server.log || true; fi"',
-            {
-              timeoutMs: 240000,
-            },
+            240000,
           );
 
           const logs = `${waitResult.stdout || ""}\n${waitResult.stderr || ""}`;
