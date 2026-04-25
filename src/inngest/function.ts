@@ -508,9 +508,11 @@ export const codeAgentFunction = inngest.createFunction(
         result.state.data.summary,
       );
 
-      const isError =
-        !result.state.data.summary ||
-        Object.keys(result.state.data.files || {}).length === 0;
+      const files = result.state.data.files || {};
+      const fileCount = Object.keys(files).length;
+      const hasSummary = Boolean(result.state.data.summary?.trim());
+      const hasResponse = Boolean(parseAgentOutput(responseOutput)?.trim());
+      const isError = !hasSummary && !hasResponse;
 
       const sandboxUrl = await step.run("get-sandbox-url", async () => {
         console.log(
@@ -542,13 +544,17 @@ export const codeAgentFunction = inngest.createFunction(
             content: parseAgentOutput(responseOutput),
             role: "ASSISTANT",
             type: "RESULT",
-            fragment: {
-              create: {
-                sandboxUrl: sandboxUrl,
-                title: parseAgentOutput(fragmentTitleOutput),
-                files: result.state.data.files,
-              },
-            },
+            ...(fileCount > 0
+              ? {
+                  fragment: {
+                    create: {
+                      sandboxUrl: sandboxUrl,
+                      title: parseAgentOutput(fragmentTitleOutput),
+                      files,
+                    },
+                  },
+                }
+              : {}),
           },
         });
       });
