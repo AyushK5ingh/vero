@@ -125,6 +125,44 @@ export const codeAgentFunction = inngest.createFunction(
     // consistent step IDs, which agent-kit derives from these names).
     const runNonce = event.data.projectId || event.id || "default";
 
+    // Pre-flight: verify the model API is reachable before starting the
+    // expensive agent network.  This surfaces auth / model-name / rate-limit
+    // errors immediately instead of after multiple step.ai retries.
+    await step.run("preflight-model-check", async () => {
+      const token = process.env.GITHUB_TOKEN;
+      const model = process.env.GITHUB_MODEL || "openai/gpt-4.1-mini";
+      const baseUrl =
+        process.env.GITHUB_MODELS_BASE_URL ||
+        "https://models.github.ai/inference";
+
+      const url = `${baseUrl.replace(/\/+$/, "")}/chat/completions`;
+
+      console.log("[preflight] Testing model API at:", url, "model:", model);
+
+      const res = await fetch(url, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${token}`,
+        },
+        body: JSON.stringify({
+          model,
+          messages: [{ role: "user", content: "ping" }],
+          max_tokens: 1,
+        }),
+      });
+
+      if (!res.ok) {
+        const body = await res.text().catch(() => "");
+        throw new Error(
+          `Model API preflight failed (${res.status} ${res.statusText}): ${body.slice(0, 500)}`,
+        );
+      }
+
+      console.log("[preflight] Model API is reachable ✓");
+      return true;
+    });
+
     console.log("[codeAgentFunction] Initializing agent network...");
 
     const codeAgent = createAgent<AgentState>({
