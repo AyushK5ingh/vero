@@ -33,7 +33,7 @@ export const codeAgentFunction = inngest.createFunction(
     const sandboxId = await step.run("get-sandbox-id", async () => {
       console.log("[codeAgentFunction] Creating sandbox...");
       const apiKey = process.env.E2B_API_KEY;
-      const template = process.env.E2B_TEMPLATE ?? "nextjs-demo-1274";
+      const template = process.env.E2B_TEMPLATE;
 
       if (!apiKey) {
         throw new Error(
@@ -42,7 +42,9 @@ export const codeAgentFunction = inngest.createFunction(
       }
 
       try {
-        const sandbox = await Sandbox.create(template, { apiKey });
+        const sandbox = template
+          ? await Sandbox.create(template, { apiKey })
+          : await Sandbox.create({ apiKey });
         console.log(
           "[codeAgentFunction] Sandbox created with ID:",
           sandbox.sandboxId,
@@ -55,8 +57,8 @@ export const codeAgentFunction = inngest.createFunction(
           error,
         );
 
-        // If the built-in fallback template was removed/renamed, try E2B default template.
-        if (!process.env.E2B_TEMPLATE) {
+        // If a configured template is invalid/missing, try E2B's default template.
+        if (template) {
           try {
             const sandbox = await Sandbox.create({ apiKey });
             console.warn(
@@ -70,14 +72,14 @@ export const codeAgentFunction = inngest.createFunction(
                 ? fallbackError.message
                 : String(fallbackError);
             throw new Error(
-              `Sandbox creation failed for template \"${template}\" and default template. ${fallbackMessage}`,
+              `Sandbox creation failed for configured template \"${template}\" and default template. ${fallbackMessage}`,
             );
           }
         }
 
         const message = error instanceof Error ? error.message : String(error);
         throw new Error(
-          `Sandbox creation failed for template \"${template}\": ${message}`,
+          `Sandbox creation failed using E2B default template: ${message}`,
         );
       }
     });
