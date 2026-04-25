@@ -16,7 +16,10 @@ function getApiKeySource(): ProviderKeySource | null {
     return "AI_API_KEY";
   }
 
-  if (process.env.GITHUB_TOKEN) {
+  const allowGithubFallback =
+    process.env.ALLOW_GITHUB_TOKEN_FALLBACK === "true";
+
+  if (allowGithubFallback && process.env.GITHUB_TOKEN) {
     return "GITHUB_TOKEN";
   }
 
@@ -28,7 +31,7 @@ export function getModelProviderConfig(): ModelProviderConfig {
 
   if (!source) {
     throw new Error(
-      "Missing model API key. Set AWS_API_KEY (preferred), AI_API_KEY, or GITHUB_TOKEN.",
+      "Missing model API key. Set AWS_API_KEY (preferred) or AI_API_KEY. To allow GITHUB_TOKEN fallback, set ALLOW_GITHUB_TOKEN_FALLBACK=true.",
     );
   }
 
@@ -47,10 +50,18 @@ export function getModelProviderConfig(): ModelProviderConfig {
     "openai/gpt-4.1-mini";
 
   const baseUrl =
-    process.env.AWS_MODELS_BASE_URL ||
-    process.env.AI_BASE_URL ||
-    process.env.GITHUB_MODELS_BASE_URL ||
-    "https://models.github.ai/inference";
+    source === "AWS_API_KEY"
+      ? process.env.AWS_MODELS_BASE_URL || process.env.AI_BASE_URL || ""
+      : source === "AI_API_KEY"
+        ? process.env.AI_BASE_URL || process.env.AWS_MODELS_BASE_URL || ""
+        : process.env.GITHUB_MODELS_BASE_URL ||
+          "https://models.github.ai/inference";
+
+  if (!baseUrl) {
+    throw new Error(
+      `Missing model base URL for ${source}. Set AWS_MODELS_BASE_URL or AI_BASE_URL.`,
+    );
+  }
 
   return {
     apiKey,

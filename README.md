@@ -123,6 +123,7 @@ vero/
    AWS_API_KEY="your_aws_api_key"
    # Optional fallbacks and overrides:
    # AI_API_KEY="your_generic_model_api_key"
+   # ALLOW_GITHUB_TOKEN_FALLBACK="false"
    # GITHUB_TOKEN="your_github_models_token"
    # AWS_MODELS_BASE_URL="https://your-openai-compatible-endpoint"
    # AWS_MODEL="openai/gpt-4.1-mini"
