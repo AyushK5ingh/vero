@@ -124,10 +124,9 @@ export const codeAgentFunction = inngest.createFunction(
       },
     );
 
-    // Use the event ID as a deterministic nonce so that agent/network names
-    // remain stable across Inngest retries (step memoization requires
-    // consistent step IDs, which agent-kit derives from these names).
-    const runNonce = event.data.projectId || event.id || "default";
+    // Prefer the Inngest event ID as a deterministic nonce so agent/network
+    // step IDs are unique per invocation but stable across retries.
+    const runNonce = event.id || event.data.projectId || "default";
 
     // Pre-flight: verify the model API is reachable before starting the
     // expensive agent network.  This surfaces auth / model-name / rate-limit
@@ -488,14 +487,14 @@ export const codeAgentFunction = inngest.createFunction(
       }
 
       const fragmentTitleGenerator = createAgent({
-        name: "fragment-title-generator",
+        name: `fragment-title-generator-${runNonce}`,
         description: "A fragment title generator",
         system: FRAGMENT_TITLE_PROMPT,
         model: githubOpenAI,
       });
 
       const responseGenerator = createAgent({
-        name: "response-generator",
+        name: `response-generator-${runNonce}`,
         description: "A response generator",
         system: RESPONSE_PROMPT,
         model: githubOpenAI,
