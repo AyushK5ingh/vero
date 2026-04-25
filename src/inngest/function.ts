@@ -500,19 +500,44 @@ export const codeAgentFunction = inngest.createFunction(
         model: githubOpenAI,
       });
 
+      const outputMessages = Array.isArray((result as any).output)
+        ? ((result as any).output as Array<{
+            role?: string;
+            content?: string | Array<{ text?: string }>;
+          }>)
+        : [];
+
+      const lastAssistantOutput = [...outputMessages]
+        .reverse()
+        .find((message) => message.role === "assistant");
+
+      const networkAssistantOutput =
+        typeof lastAssistantOutput?.content === "string"
+          ? lastAssistantOutput.content.trim()
+          : Array.isArray(lastAssistantOutput?.content)
+            ? lastAssistantOutput.content
+                .map((chunk) => chunk.text || "")
+                .join("")
+                .trim()
+            : "";
+      const summaryForPostProcessing =
+        result.state.data.summary?.trim() || networkAssistantOutput;
+
       const { output: fragmentTitleOutput } = await fragmentTitleGenerator.run(
-        result.state.data.summary,
+        summaryForPostProcessing,
       );
 
       const { output: responseOutput } = await responseGenerator.run(
-        result.state.data.summary,
+        summaryForPostProcessing,
       );
 
       const files = result.state.data.files || {};
       const fileCount = Object.keys(files).length;
-      const hasSummary = Boolean(result.state.data.summary?.trim());
-      const hasResponse = Boolean(parseAgentOutput(responseOutput)?.trim());
-      const isError = !hasSummary && !hasResponse;
+      const responseText = parseAgentOutput(responseOutput)?.trim() || "";
+      const hasSummary = Boolean(summaryForPostProcessing);
+      const hasResponse = Boolean(responseText);
+      const hasAnyOutput = hasSummary || hasResponse;
+      const isError = !hasAnyOutput;
 
       const sandboxUrl = await step.run("get-sandbox-url", async () => {
         console.log(
@@ -541,7 +566,7 @@ export const codeAgentFunction = inngest.createFunction(
         return await prisma.message.create({
           data: {
             projectId: event.data.projectId,
-            content: parseAgentOutput(responseOutput),
+            content: responseText || summaryForPostProcessing,
             role: "ASSISTANT",
             type: "RESULT",
             ...(fileCount > 0
