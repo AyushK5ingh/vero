@@ -14,8 +14,10 @@ interface AgentState {
 }
 
 export const codeAgentFunction = inngest.createFunction(
-  { id: "code-agent" },
-  { event: "code-agent/run" },
+  {
+    id: "code-agent",
+    triggers: [{ event: "code-agent/run" }],
+  },
   async ({ event, step }) => {
     const sandboxId = await step.run("get-sandbox-id", async () => {
       console.log("[codeAgentFunction] Creating sandbox...");
