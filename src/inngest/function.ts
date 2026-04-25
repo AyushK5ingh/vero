@@ -257,6 +257,39 @@ export const codeAgentFunction = inngest.createFunction(
         result.state.data.summary?.length || 0,
       );
 
+      await step.run("ensure-preview-server", async () => {
+        const sandbox = await getSandbox(sandboxId);
+
+        const probe = await sandbox.commands.run(
+          'bash -lc "if curl -fsS --max-time 2 http://127.0.0.1:3000 >/dev/null; then echo READY; else echo CLOSED; fi"',
+        );
+
+        if ((probe.stdout || "").includes("READY")) {
+          console.log(
+            "[codeAgentFunction] Preview server already running on port 3000",
+          );
+          return;
+        }
+
+        console.log(
+          "[codeAgentFunction] Starting preview server on port 3000...",
+        );
+
+        await sandbox.commands.run(
+          "bash -lc \"cd /home/user && nohup sh -c 'if [ -f pnpm-lock.yaml ]; then pnpm install --no-frozen-lockfile && pnpm dev --host 0.0.0.0 --port 3000; elif [ -f package-lock.json ]; then npm install --yes && npm run dev -- --hostname 0.0.0.0 --port 3000; else npm install --yes && npm run dev -- --hostname 0.0.0.0 --port 3000; fi' >/tmp/preview-server.log 2>&1 &\"",
+        );
+
+        const waitResult = await sandbox.commands.run(
+          'bash -lc "for i in $(seq 1 60); do if curl -fsS --max-time 2 http://127.0.0.1:3000 >/dev/null; then echo READY; exit 0; fi; sleep 1; done; echo FAILED; tail -n 80 /tmp/preview-server.log || true; exit 1"',
+        );
+
+        if (!(waitResult.stdout || "").includes("READY")) {
+          throw new Error(
+            `Preview server failed to start on port 3000. Logs:\n${waitResult.stdout || ""}\n${waitResult.stderr || ""}`,
+          );
+        }
+      });
+
       const fragmentTitleGenerator = createAgent({
         name: "fragment-title-generator",
         description: "A fragment title generator",
