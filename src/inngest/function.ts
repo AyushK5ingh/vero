@@ -119,10 +119,12 @@ export const codeAgentFunction = inngest.createFunction(
       },
     );
 
+    const runNonce = `${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
+
     console.log("[codeAgentFunction] Initializing agent network...");
 
     const codeAgent = createAgent<AgentState>({
-      name: "code-agent-main",
+      name: `code-agent-main-${runNonce}`,
       description: "An expert coding agent",
       system: PROMPT,
       model: githubOpenAI,
@@ -233,7 +235,7 @@ export const codeAgentFunction = inngest.createFunction(
     });
 
     const network = createNetwork<AgentState>({
-      name: "code-agent-network-main",
+      name: `code-agent-network-main-${runNonce}`,
       agents: [codeAgent],
       maxIter: 15,
       defaultState: state,
@@ -282,26 +284,101 @@ export const codeAgentFunction = inngest.createFunction(
           );
 
           const projectRootResult = await sandbox.commands.run(
-            'sh -c "ROOT=; for d in /home/user /workspace /app /home/user/app /home/user/project; do if [ -f \"$d/package.json\" ]; then ROOT=\"$d\"; break; fi; done; if [ -z \"$ROOT\" ]; then PKG=$(find /home /workspace /app -maxdepth 4 -name package.json 2>/dev/null | head -n 1); if [ -n \"$PKG\" ]; then ROOT=$(dirname \"$PKG\"); fi; fi; echo \"$ROOT\""',
+            'sh -c "ROOT=; for d in /home/user /workspace /app /home/user/app /home/user/project /tmp; do if [ -f \"$d/package.json\" ]; then ROOT=\"$d\"; break; fi; done; if [ -z \"$ROOT\" ]; then PKG=$(find /home /workspace /app /tmp -maxdepth 8 -name package.json 2>/dev/null | head -n 1); if [ -n \"$PKG\" ]; then ROOT=$(dirname \"$PKG\"); fi; fi; if [ -z \"$ROOT\" ]; then APPFILE=$(find /home /workspace /app /tmp -maxdepth 8 \( -path \"*/app/page.tsx\" -o -path \"*/app/layout.tsx\" \) 2>/dev/null | head -n 1); if [ -n \"$APPFILE\" ]; then ROOT=$(dirname $(dirname \"$APPFILE\")); fi; fi; echo \"$ROOT\""',
             {
               timeoutMs: 10000,
             },
           );
 
-          const projectRoot = (projectRootResult.stdout || "")
+          let projectRoot = (projectRootResult.stdout || "")
             .trim()
             .split("\n")
             .at(-1)
             ?.trim();
 
           if (!projectRoot) {
-            return {
-              ready: false,
-              logs: "NO_PACKAGE_JSON: could not locate package.json in sandbox",
-            };
+            projectRoot = "/home/user";
           }
 
           const quotedRoot = JSON.stringify(projectRoot);
+
+          const hasPackageJsonResult = await sandbox.commands.run(
+            `sh -c "if [ -f ${quotedRoot}/package.json ]; then echo HAS_PKG; else echo NO_PKG; fi"`,
+            {
+              timeoutMs: 10000,
+            },
+          );
+
+          const hasPackageJson = (hasPackageJsonResult.stdout || "").includes(
+            "HAS_PKG",
+          );
+
+          if (!hasPackageJson) {
+            console.log(
+              "[codeAgentFunction] No package.json found. Bootstrapping minimal Next.js app at:",
+              projectRoot,
+            );
+
+            await sandbox.commands.run(`sh -c "mkdir -p ${quotedRoot}/app"`, {
+              timeoutMs: 10000,
+            });
+
+            await sandbox.files.write(
+              `${projectRoot}/package.json`,
+              JSON.stringify(
+                {
+                  name: "sandbox-app",
+                  private: true,
+                  scripts: {
+                    dev: "next dev",
+                    build: "next build",
+                    start: "next start",
+                  },
+                  dependencies: {
+                    next: "15.3.3",
+                    react: "19.0.0",
+                    "react-dom": "19.0.0",
+                  },
+                  devDependencies: {
+                    typescript: "^5.6.3",
+                    "@types/node": "^22.10.2",
+                    "@types/react": "^19.0.1",
+                    "@types/react-dom": "^19.0.2",
+                  },
+                },
+                null,
+                2,
+              ),
+            );
+
+            const hasLayoutResult = await sandbox.commands.run(
+              `sh -c "if [ -f ${quotedRoot}/app/layout.tsx ] || [ -f ${quotedRoot}/src/app/layout.tsx ]; then echo HAS_LAYOUT; else echo NO_LAYOUT; fi"`,
+              {
+                timeoutMs: 10000,
+              },
+            );
+
+            if (!(hasLayoutResult.stdout || "").includes("HAS_LAYOUT")) {
+              await sandbox.files.write(
+                `${projectRoot}/app/layout.tsx`,
+                'export default function RootLayout({ children }: { children: React.ReactNode }) {\n  return (\n    <html lang="en">\n      <body>{children}</body>\n    </html>\n  );\n}\n',
+              );
+            }
+
+            const hasPageResult = await sandbox.commands.run(
+              `sh -c "if [ -f ${quotedRoot}/app/page.tsx ] || [ -f ${quotedRoot}/src/app/page.tsx ]; then echo HAS_PAGE; else echo NO_PAGE; fi"`,
+              {
+                timeoutMs: 10000,
+              },
+            );
+
+            if (!(hasPageResult.stdout || "").includes("HAS_PAGE")) {
+              await sandbox.files.write(
+                `${projectRoot}/app/page.tsx`,
+                "export default function Page() {\n  return <main style={{ padding: 24 }}>Sandbox Ready</main>;\n}\n",
+              );
+            }
+          }
 
           await sandbox.commands.run(
             `sh -c "cd ${quotedRoot} && if [ -f pnpm-lock.yaml ]; then nohup sh -c \\\"pnpm install --no-frozen-lockfile && pnpm dev --host 0.0.0.0 --port 3000\\\" >/tmp/preview-server.log 2>&1 & elif [ -f package-lock.json ]; then nohup sh -c \\\"npm install --yes && npm run dev -- --hostname 0.0.0.0 --port 3000\\\" >/tmp/preview-server.log 2>&1 & elif [ -f yarn.lock ]; then nohup sh -c \\\"yarn install && yarn dev --host 0.0.0.0 --port 3000\\\" >/tmp/preview-server.log 2>&1 & else nohup sh -c \\\"npm install --yes && npm run dev -- --hostname 0.0.0.0 --port 3000\\\" >/tmp/preview-server.log 2>&1 & fi"`,
