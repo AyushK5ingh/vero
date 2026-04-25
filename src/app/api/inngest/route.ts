@@ -2,9 +2,7 @@ import { serve } from "inngest/next";
 import { inngest } from "../../../inngest/client";
 import { codeAgentFunction } from "@/inngest/function";
 
-// This endpoint can run for a maximum of 300 seconds on Vercel.
-export const maxDuration = 300;
-
+// Create an API that serves zero functions
 export const { GET, POST, PUT } = serve({
   client: inngest,
   functions: [

@@ -2,20 +2,13 @@ import { Sandbox } from "@e2b/code-interpreter";
 import { AgentResult, Message, TextMessage } from "@inngest/agent-kit";
 
 export async function getSandbox(sandboxId: string) {
-  const apiKey = process.env.E2B_API_KEY;
-  if (!apiKey) {
-    throw new Error(
-      "E2B_API_KEY is missing. Set it in Vercel project environment variables.",
-    );
-  }
-
-  const sandbox = await Sandbox.connect(sandboxId, { apiKey });
+  const sandbox = await Sandbox.connect(sandboxId);
   return sandbox;
 }
 
 export function lastAssistantTextMessageContent(result: AgentResult) {
   const lastAssistantTextMessageIndex = result.output.findLastIndex(
-    (message) => message.role === "assistant",
+    (message) => message.role === "assistant"
   );
 
   const message = result.output[lastAssistantTextMessageIndex] as
@@ -28,6 +21,7 @@ export function lastAssistantTextMessageContent(result: AgentResult) {
       : message.content.map((c) => c.text).join("")
     : undefined;
 }
+
 
 export const parseAgentOutput = (value: Message[]) => {
   const output = value[0];

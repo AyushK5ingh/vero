@@ -2,7 +2,7 @@
 
 **Build with context model and vero-style**
 
-[![GitHub](https://img.shields.io/badge/GitHub-Repository-blue?style=flat&logo=github)](https://github.com/AyushK5ingh/Vero)
+[![GitHub](https://img.shields.io/badge/GitHub-Repository-blue?style=flat&logo=github)](https://github.com/iharshyadav/Vero)
 [![Next.js](https://img.shields.io/badge/Next.js-15.3.4-000000?style=flat&logo=next.js)](https://nextjs.org/)
 [![TypeScript](https://img.shields.io/badge/TypeScript-5.0-blue?style=flat&logo=typescript)](https://www.typescriptlang.org/)
 [![Tailwind CSS](https://img.shields.io/badge/Tailwind-CSS-blue?style=flat&logo=tailwind-css)](https://tailwindcss.com/)
@@ -89,7 +89,7 @@ vero/
 
 1. **Clone the repository**
    ```bash
-   git clone https://github.com/AyushK5ingh/Vero.git
+   git clone https://github.com/iharshyadav/Vero.git
    cd Vero
    ```
 
