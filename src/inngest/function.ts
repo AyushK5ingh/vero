@@ -264,7 +264,7 @@ export const codeAgentFunction = inngest.createFunction(
           const sandbox = await getSandbox(sandboxId);
 
           const probe = await sandbox.commands.run(
-            'sh -c "if command -v curl >/dev/null 2>&1 && curl -fsS --max-time 2 http://127.0.0.1:3000 >/dev/null; then echo READY; else echo CLOSED; fi"',
+            'sh -c "if command -v curl >/dev/null 2>&1 && curl -fs --max-time 2 http://127.0.0.1:3000 >/dev/null 2>&1; then echo READY; else echo CLOSED; fi"',
             {
               timeoutMs: 10000,
             },
@@ -281,17 +281,39 @@ export const codeAgentFunction = inngest.createFunction(
             "[codeAgentFunction] Starting preview server on port 3000...",
           );
 
+          const projectRootResult = await sandbox.commands.run(
+            'sh -c "ROOT=; for d in /home/user /workspace /app /home/user/app /home/user/project; do if [ -f \"$d/package.json\" ]; then ROOT=\"$d\"; break; fi; done; if [ -z \"$ROOT\" ]; then PKG=$(find /home /workspace /app -maxdepth 4 -name package.json 2>/dev/null | head -n 1); if [ -n \"$PKG\" ]; then ROOT=$(dirname \"$PKG\"); fi; fi; echo \"$ROOT\""',
+            {
+              timeoutMs: 10000,
+            },
+          );
+
+          const projectRoot = (projectRootResult.stdout || "")
+            .trim()
+            .split("\n")
+            .at(-1)
+            ?.trim();
+
+          if (!projectRoot) {
+            return {
+              ready: false,
+              logs: "NO_PACKAGE_JSON: could not locate package.json in sandbox",
+            };
+          }
+
+          const quotedRoot = JSON.stringify(projectRoot);
+
           await sandbox.commands.run(
-            "sh -c \"cd /home/user && nohup sh -c 'if [ -f pnpm-lock.yaml ]; then pnpm install --no-frozen-lockfile && pnpm dev --host 0.0.0.0 --port 3000; elif [ -f package-lock.json ]; then npm install --yes && npm run dev -- --hostname 0.0.0.0 --port 3000; else npm install --yes && npm run dev -- --hostname 0.0.0.0 --port 3000; fi' >/tmp/preview-server.log 2>&1 &\"",
+            `sh -c "cd ${quotedRoot} && if [ -f pnpm-lock.yaml ]; then nohup sh -c \\\"pnpm install --no-frozen-lockfile && pnpm dev --host 0.0.0.0 --port 3000\\\" >/tmp/preview-server.log 2>&1 & elif [ -f package-lock.json ]; then nohup sh -c \\\"npm install --yes && npm run dev -- --hostname 0.0.0.0 --port 3000\\\" >/tmp/preview-server.log 2>&1 & elif [ -f yarn.lock ]; then nohup sh -c \\\"yarn install && yarn dev --host 0.0.0.0 --port 3000\\\" >/tmp/preview-server.log 2>&1 & else nohup sh -c \\\"npm install --yes && npm run dev -- --hostname 0.0.0.0 --port 3000\\\" >/tmp/preview-server.log 2>&1 & fi"`,
             {
               timeoutMs: 30000,
             },
           );
 
           const waitResult = await sandbox.commands.run(
-            'sh -c "for n in 1 2 3 4 5 6 7 8 9 10 11 12 13 14 15 16 17 18 19 20 21 22 23 24 25 26 27 28 29 30 31 32 33 34 35 36 37 38 39 40 41 42 43 44 45 46 47 48 49 50 51 52 53 54 55 56 57 58 59 60; do if command -v curl >/dev/null 2>&1 && curl -fsS --max-time 2 http://127.0.0.1:3000 >/dev/null; then echo READY; break; fi; sleep 1; done; if ! command -v curl >/dev/null 2>&1 || ! curl -fsS --max-time 2 http://127.0.0.1:3000 >/dev/null; then echo FAILED; tail -n 80 /tmp/preview-server.log || true; fi"',
+            'sh -c "for n in 1 2 3 4 5 6 7 8 9 10 11 12 13 14 15 16 17 18 19 20 21 22 23 24 25 26 27 28 29 30 31 32 33 34 35 36 37 38 39 40 41 42 43 44 45 46 47 48 49 50 51 52 53 54 55 56 57 58 59 60 61 62 63 64 65 66 67 68 69 70 71 72 73 74 75 76 77 78 79 80 81 82 83 84 85 86 87 88 89 90 91 92 93 94 95 96 97 98 99 100 101 102 103 104 105 106 107 108 109 110 111 112 113 114 115 116 117 118 119 120; do if command -v curl >/dev/null 2>&1 && curl -fs --max-time 2 http://127.0.0.1:3000 >/dev/null 2>&1; then echo READY; break; fi; sleep 1; done; if ! command -v curl >/dev/null 2>&1 || ! curl -fs --max-time 2 http://127.0.0.1:3000 >/dev/null 2>&1; then echo FAILED; tail -n 120 /tmp/preview-server.log || true; fi"',
             {
-              timeoutMs: 120000,
+              timeoutMs: 240000,
             },
           );
 
