@@ -11,7 +11,7 @@ export const githubOpenAI = (() => {
 
   if (!token) {
     throw new Error(
-      "GITHUB_TOKEN is missing from environment variables. Set it before running code-agent.",
+      "Missing model token. Set GITHUB_TOKEN before running code-agent.",
     );
   }
 

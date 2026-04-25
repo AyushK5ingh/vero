@@ -3,30 +3,28 @@
 import ModelClient, { isUnexpected } from "@azure-rest/ai-inference";
 import { AzureKeyCredential } from "@azure/core-auth";
 
-const token = process.env.GITHUB_TOKEN!;
+const token = process.env.GITHUB_TOKEN;
 const endpoint = "https://models.github.ai/inference";
 const model = "phi-3-mini-4k-instruct";
 
-
-
-
 export async function askAI(systemPrompt: string, userQuery: string) {
+  if (!token) {
+    throw new Error("Missing model token. Set GITHUB_TOKEN.");
+  }
+
   try {
-    const client = ModelClient(
-      endpoint,
-      new AzureKeyCredential(token),
-    );
+    const client = ModelClient(endpoint, new AzureKeyCredential(token));
 
     const response = await client.path("/chat/completions").post({
       body: {
         messages: [
           { role: "system", content: systemPrompt },
-          { role: "user", content: userQuery }
+          { role: "user", content: userQuery },
         ],
         temperature: 1,
         top_p: 1,
-        model: model
-      }
+        model: model,
+      },
     });
 
     if (isUnexpected(response)) {
@@ -35,7 +33,7 @@ export async function askAI(systemPrompt: string, userQuery: string) {
 
     const content = response.body.choices[0].message.content;
     console.log("AI Response:", content);
-    
+
     return {
       message: content,
     };

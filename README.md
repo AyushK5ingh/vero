@@ -23,6 +23,7 @@ Vero is an innovative AI-powered web development platform that enables users to 
 ## 🛠️ Tech Stack
 
 ### Frontend
+
 - **Framework**: Next.js 15.3.4 (App Router)
 - **Language**: TypeScript
 - **Styling**: Tailwind CSS v4
@@ -31,6 +32,7 @@ Vero is an innovative AI-powered web development platform that enables users to 
 - **Forms**: React Hook Form with Zod validation
 
 ### Backend
+
 - **API**: tRPC for type-safe API calls
 - **Database**: PostgreSQL with Prisma ORM
 - **Authentication**: Clerk
@@ -39,6 +41,7 @@ Vero is an innovative AI-powered web development platform that enables users to 
 - **Code Execution**: E2B sandboxed environments
 
 ### Development Tools
+
 - **Package Manager**: pnpm
 - **Code Quality**: ESLint, Prettier
 - **Database Migrations**: Prisma Migrate
@@ -88,48 +91,54 @@ vero/
 ### Installation
 
 1. **Clone the repository**
+
    ```bash
    git clone https://github.com/AyushK5ingh/Vero.git
    cd Vero
    ```
 
 2. **Install dependencies**
+
    ```bash
    pnpm install
    ```
 
 3. **Environment setup**
+
    ```bash
    cp .env.example .env
    ```
-   
+
    Configure your `.env` file with:
+
    ```env
    # Database
    DATABASE_URL="postgresql://username:password@localhost:5432/vero"
-   
+
    # Clerk Authentication
    NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY="your_clerk_publishable_key"
    CLERK_SECRET_KEY="your_clerk_secret_key"
-   
+
    # OpenAI (GitHub AI)
-   OPENAI_API_KEY="your_github_ai_token"
-   
+   GITHUB_TOKEN="your_github_ai_token"
+
    # E2B
    E2B_API_KEY="your_e2b_api_key"
-   
+
    # Inngest
    INNGEST_EVENT_KEY="your_inngest_event_key"
    INNGEST_SIGNING_KEY="your_inngest_signing_key"
    ```
 
 4. **Database setup**
+
    ```bash
    pnpm prisma generate
    pnpm prisma db push
    ```
 
 5. **Start development server**
+
    ```bash
    pnpm dev
    ```
@@ -184,6 +193,7 @@ pnpm prisma:gen   # Generate Prisma client
 ### Manual Deployment
 
 1. **Build the application**
+
    ```bash
    pnpm build
    ```
@@ -212,4 +222,3 @@ We welcome contributions! Please see our contributing guidelines:
 - [E2B](https://e2b.dev/) - Code execution environments
 - [tRPC](https://trpc.io/) - Type-safe APIs
 - [Inngest](https://inngest.com/) - Background job processing
-
