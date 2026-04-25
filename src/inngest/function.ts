@@ -62,8 +62,6 @@ export const codeAgentFunction = inngest.createFunction(
       }
     );
 
-    console.log("[codeAgentFunction] Initializing agent network...");
-
     const codeAgent = createAgent<AgentState>({
       name: "code-agent",
       description: "An expert coding agent",
@@ -186,16 +184,7 @@ export const codeAgentFunction = inngest.createFunction(
       },
     });
 
-    console.log(
-      "[codeAgentFunction] Running network for input:",
-      event.data.value,
-    );
-    try {
-      const result = await network.run(event.data.value, { state });
-      console.log(
-        "[codeAgentFunction] Network run complete. Summary length:",
-        result.state.data.summary?.length || 0,
-      );
+    const result = await network.run(event.data.value , {state});
 
       const fragmentTitleGenerator = createAgent({
       name: "fragment-title-generator",
