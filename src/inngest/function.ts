@@ -188,15 +188,34 @@ export const codeAgentFunction = inngest.createFunction(
               const buffers = { stdout: "", stderr: "" };
               try {
                 const sandbox = await getSandbox(sandboxId);
-                const result = await sandbox.commands.run(command, {
-                  timeoutMs: 240000,
-                  onStdout: (data: string) => {
-                    buffers.stdout += data;
-                  },
-                  onStderr: (data: string) => {
-                    buffers.stderr += data;
-                  },
-                });
+                let result;
+                try {
+                  result = await sandbox.commands.run(
+                    `sh -lc ${JSON.stringify(command)}`,
+                    {
+                      timeoutMs: 240000,
+                      onStdout: (data: string) => {
+                        buffers.stdout += data;
+                      },
+                      onStderr: (data: string) => {
+                        buffers.stderr += data;
+                      },
+                    },
+                  );
+                } catch {
+                  result = await sandbox.commands.run(
+                    `bash -lc ${JSON.stringify(command)}`,
+                    {
+                      timeoutMs: 240000,
+                      onStdout: (data: string) => {
+                        buffers.stdout += data;
+                      },
+                      onStderr: (data: string) => {
+                        buffers.stderr += data;
+                      },
+                    },
+                  );
+                }
                 return result.stdout;
               } catch (e) {
                 console.error(
