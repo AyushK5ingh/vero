@@ -1,7 +1,18 @@
 import { inngest } from "./client";
 import { Sandbox } from "@e2b/code-interpreter";
-import { getSandbox, lastAssistantTextMessageContent, parseAgentOutput } from "./utils";
-import { createAgent, createNetwork, createTool, type Tool , type Message, createState, } from "@inngest/agent-kit";
+import {
+  getSandbox,
+  lastAssistantTextMessageContent,
+  parseAgentOutput,
+} from "./utils";
+import {
+  createAgent,
+  createNetwork,
+  createTool,
+  type Tool,
+  type Message,
+  createState,
+} from "@inngest/agent-kit";
 import { githubOpenAI } from "./model";
 import { string, z } from "zod";
 import { FRAGMENT_TITLE_PROMPT, PROMPT, RESPONSE_PROMPT } from "./prompt";
@@ -23,7 +34,10 @@ export const codeAgentFunction = inngest.createFunction(
       console.log("[codeAgentFunction] Creating sandbox...");
       try {
         const sandbox = await Sandbox.create("nextjs-demo-1274");
-        console.log("[codeAgentFunction] Sandbox created with ID:", sandbox.sandboxId);
+        console.log(
+          "[codeAgentFunction] Sandbox created with ID:",
+          sandbox.sandboxId,
+        );
         return sandbox.sandboxId;
       } catch (error) {
         console.error("[codeAgentFunction] Failed to create sandbox:", error);
@@ -31,7 +45,7 @@ export const codeAgentFunction = inngest.createFunction(
       }
     });
 
-      const previousMessages = await step.run(
+    const previousMessages = await step.run(
       "get-previous-messages",
       async () => {
         const formattedMessages: Message[] = [];
@@ -53,7 +67,7 @@ export const codeAgentFunction = inngest.createFunction(
           });
         }
         return formattedMessages.reverse();
-      }
+      },
     );
 
     const state = createState<AgentState>(
@@ -63,7 +77,7 @@ export const codeAgentFunction = inngest.createFunction(
       },
       {
         messages: previousMessages,
-      }
+      },
     );
 
     console.log("[codeAgentFunction] Initializing agent network...");
@@ -96,7 +110,7 @@ export const codeAgentFunction = inngest.createFunction(
                 return result.stdout;
               } catch (e) {
                 console.error(
-                  `Command failed: ${e} \nstdout: ${buffers.stdout}\nstderror: ${buffers.stderr}`
+                  `Command failed: ${e} \nstdout: ${buffers.stdout}\nstderror: ${buffers.stderr}`,
                 );
                 return `Command failed: ${e} \nstdout: ${buffers.stdout}\nstderr: ${buffers.stderr}`;
               }
@@ -111,10 +125,13 @@ export const codeAgentFunction = inngest.createFunction(
               z.object({
                 path: z.string(),
                 content: z.string(),
-              })
+              }),
             ),
           }),
-          handler: async ({ files }, { step, network } : Tool.Options<AgentState>) => {
+          handler: async (
+            { files },
+            { step, network }: Tool.Options<AgentState>,
+          ) => {
             const newFiles = await step?.run(
               "createOrUpdateFiles",
               async () => {
@@ -129,7 +146,7 @@ export const codeAgentFunction = inngest.createFunction(
                 } catch (e) {
                   return "Error: " + e;
                 }
-              }
+              },
             );
 
             if (typeof newFiles === "object") {
@@ -190,33 +207,38 @@ export const codeAgentFunction = inngest.createFunction(
       },
     });
 
-    console.log("[codeAgentFunction] Running network for input:", event.data.value);
-    const result = await network.run(event.data.value , {state});
-    console.log("[codeAgentFunction] Network run complete. Summary length:", result.state.data.summary?.length || 0);
+    console.log(
+      "[codeAgentFunction] Running network for input:",
+      event.data.value,
+    );
+    const result = await network.run(event.data.value, { state });
+    console.log(
+      "[codeAgentFunction] Network run complete. Summary length:",
+      result.state.data.summary?.length || 0,
+    );
 
-      const fragmentTitleGenerator = createAgent({
+    const fragmentTitleGenerator = createAgent({
       name: "fragment-title-generator",
       description: "A fragment title generator",
       system: FRAGMENT_TITLE_PROMPT,
-      model: githubOpenAI
+      model: githubOpenAI,
     });
 
     const responseGenerator = createAgent({
       name: "response-generator",
       description: "A response generator",
       system: RESPONSE_PROMPT,
-      model: githubOpenAI
+      model: githubOpenAI,
     });
 
-    
     const { output: fragmentTitleOutput } = await fragmentTitleGenerator.run(
-      result.state.data.summary
+      result.state.data.summary,
     );
-    
+
     const { output: responseOutput } = await responseGenerator.run(
-      result.state.data.summary
+      result.state.data.summary,
     );
-    
+
     const isError =
       !result.state.data.summary ||
       Object.keys(result.state.data.files || {}).length === 0;
@@ -234,7 +256,7 @@ export const codeAgentFunction = inngest.createFunction(
       if (isError) {
         return await prisma.message.create({
           data: {
-            projectId : event.data.projectId,
+            projectId: event.data.projectId,
             content: "Something went wrong. Please try again.",
             role: "ASSISTANT",
             type: "ERROR",
@@ -244,7 +266,7 @@ export const codeAgentFunction = inngest.createFunction(
 
       return await prisma.message.create({
         data: {
-          projectId : event.data.projectId,
+          projectId: event.data.projectId,
           content: parseAgentOutput(responseOutput),
           role: "ASSISTANT",
           type: "RESULT",
@@ -265,7 +287,7 @@ export const codeAgentFunction = inngest.createFunction(
       files: result.state.data.files,
       summary: result.state.data.summary,
     };
-  }
+  },
 );
 
 // export const deploymentAgentFunction = inngest.createFunction(
