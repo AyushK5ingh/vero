@@ -27,6 +27,7 @@ interface AgentState {
 export const codeAgentFunction = inngest.createFunction(
   {
     id: "code-agent",
+    retries: 2,
     triggers: [{ event: "code-agent/run" }],
   },
   async ({ event, step }) => {
@@ -119,7 +120,10 @@ export const codeAgentFunction = inngest.createFunction(
       },
     );
 
-    const runNonce = `${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
+    // Use the event ID as a deterministic nonce so that agent/network names
+    // remain stable across Inngest retries (step memoization requires
+    // consistent step IDs, which agent-kit derives from these names).
+    const runNonce = event.data.projectId || event.id || "default";
 
     console.log("[codeAgentFunction] Initializing agent network...");
 
@@ -254,6 +258,10 @@ export const codeAgentFunction = inngest.createFunction(
       event.data.value,
     );
     try {
+      console.log(
+        "[codeAgentFunction] Starting network.run() with nonce:",
+        runNonce,
+      );
       const result = await network.run(event.data.value, { state });
       console.log(
         "[codeAgentFunction] Network run complete. Summary length:",
@@ -483,11 +491,33 @@ export const codeAgentFunction = inngest.createFunction(
       };
     } catch (error) {
       const message = error instanceof Error ? error.message : String(error);
-      const aiGatewayHint = message.includes("status code: 404")
-        ? "AI gateway returned 404. Verify GITHUB_TOKEN and set GITHUB_MODEL to a valid GitHub model (for example: openai/gpt-4.1-mini)."
-        : message;
+      const stack = error instanceof Error ? error.stack : "";
 
-      console.error("[codeAgentFunction] Agent execution failed:", message);
+      // Surface actionable hints for common failures
+      let aiGatewayHint = message;
+      if (message.includes("status code: 404")) {
+        aiGatewayHint =
+          "AI gateway returned 404. Verify GITHUB_TOKEN and set GITHUB_MODEL to a valid GitHub model (for example: openai/gpt-4.1-mini).";
+      } else if (
+        message.includes("rate limit") ||
+        message.includes("429")
+      ) {
+        aiGatewayHint =
+          "Rate limited by the AI provider. Wait a moment and try again.";
+      } else if (
+        message.includes("timeout") ||
+        message.includes("ETIMEDOUT")
+      ) {
+        aiGatewayHint =
+          "Request timed out reaching the AI provider. Check your network or try again.";
+      }
+
+      console.error(
+        "[codeAgentFunction] Agent execution failed:",
+        message,
+        "\nStack:",
+        stack,
+      );
 
       await step.run("save-error-result", async () => {
         return await prisma.message.create({
