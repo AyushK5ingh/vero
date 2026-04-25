@@ -250,82 +250,112 @@ export const codeAgentFunction = inngest.createFunction(
       "[codeAgentFunction] Running network for input:",
       event.data.value,
     );
-    const result = await network.run(event.data.value, { state });
-    console.log(
-      "[codeAgentFunction] Network run complete. Summary length:",
-      result.state.data.summary?.length || 0,
-    );
+    try {
+      const result = await network.run(event.data.value, { state });
+      console.log(
+        "[codeAgentFunction] Network run complete. Summary length:",
+        result.state.data.summary?.length || 0,
+      );
 
-    const fragmentTitleGenerator = createAgent({
-      name: "fragment-title-generator",
-      description: "A fragment title generator",
-      system: FRAGMENT_TITLE_PROMPT,
-      model: githubOpenAI,
-    });
+      const fragmentTitleGenerator = createAgent({
+        name: "fragment-title-generator",
+        description: "A fragment title generator",
+        system: FRAGMENT_TITLE_PROMPT,
+        model: githubOpenAI,
+      });
 
-    const responseGenerator = createAgent({
-      name: "response-generator",
-      description: "A response generator",
-      system: RESPONSE_PROMPT,
-      model: githubOpenAI,
-    });
+      const responseGenerator = createAgent({
+        name: "response-generator",
+        description: "A response generator",
+        system: RESPONSE_PROMPT,
+        model: githubOpenAI,
+      });
 
-    const { output: fragmentTitleOutput } = await fragmentTitleGenerator.run(
-      result.state.data.summary,
-    );
+      const { output: fragmentTitleOutput } = await fragmentTitleGenerator.run(
+        result.state.data.summary,
+      );
 
-    const { output: responseOutput } = await responseGenerator.run(
-      result.state.data.summary,
-    );
+      const { output: responseOutput } = await responseGenerator.run(
+        result.state.data.summary,
+      );
 
-    const isError =
-      !result.state.data.summary ||
-      Object.keys(result.state.data.files || {}).length === 0;
+      const isError =
+        !result.state.data.summary ||
+        Object.keys(result.state.data.files || {}).length === 0;
 
-    const sandboxUrl = await step.run("get-sandbox-url", async () => {
-      console.log("[codeAgentFunction] Getting sandbox URL for ID:", sandboxId);
-      const sandbox = await getSandbox(sandboxId);
-      const host = sandbox.getHost(3000);
-      const url = `https://${host}`;
-      console.log("[codeAgentFunction] Sandbox URL:", url);
-      return url;
-    });
+      const sandboxUrl = await step.run("get-sandbox-url", async () => {
+        console.log(
+          "[codeAgentFunction] Getting sandbox URL for ID:",
+          sandboxId,
+        );
+        const sandbox = await getSandbox(sandboxId);
+        const host = sandbox.getHost(3000);
+        const url = `https://${host}`;
+        console.log("[codeAgentFunction] Sandbox URL:", url);
+        return url;
+      });
 
-    await step.run("save-result", async () => {
-      if (isError) {
+      await step.run("save-result", async () => {
+        if (isError) {
+          return await prisma.message.create({
+            data: {
+              projectId: event.data.projectId,
+              content: "Something went wrong. Please try again.",
+              role: "ASSISTANT",
+              type: "ERROR",
+            },
+          });
+        }
+
         return await prisma.message.create({
           data: {
             projectId: event.data.projectId,
-            content: "Something went wrong. Please try again.",
+            content: parseAgentOutput(responseOutput),
+            role: "ASSISTANT",
+            type: "RESULT",
+            fragment: {
+              create: {
+                sandboxUrl: sandboxUrl,
+                title: parseAgentOutput(fragmentTitleOutput),
+                files: result.state.data.files,
+              },
+            },
+          },
+        });
+      });
+
+      return {
+        url: sandboxUrl,
+        title: "Fragment",
+        files: result.state.data.files,
+        summary: result.state.data.summary,
+      };
+    } catch (error) {
+      const message = error instanceof Error ? error.message : String(error);
+      const aiGatewayHint = message.includes("status code: 404")
+        ? "AI gateway returned 404. Verify GITHUB_TOKEN and set GITHUB_MODEL to a valid GitHub model (for example: openai/gpt-4.1-mini)."
+        : message;
+
+      console.error("[codeAgentFunction] Agent execution failed:", message);
+
+      await step.run("save-error-result", async () => {
+        return await prisma.message.create({
+          data: {
+            projectId: event.data.projectId,
+            content: `Code generation failed: ${aiGatewayHint}`,
             role: "ASSISTANT",
             type: "ERROR",
           },
         });
-      }
-
-      return await prisma.message.create({
-        data: {
-          projectId: event.data.projectId,
-          content: parseAgentOutput(responseOutput),
-          role: "ASSISTANT",
-          type: "RESULT",
-          fragment: {
-            create: {
-              sandboxUrl: sandboxUrl,
-              title: parseAgentOutput(fragmentTitleOutput),
-              files: result.state.data.files,
-            },
-          },
-        },
       });
-    });
 
-    return {
-      url: sandboxUrl,
-      title: "Fragment",
-      files: result.state.data.files,
-      summary: result.state.data.summary,
-    };
+      return {
+        url: null,
+        title: "Error",
+        files: {},
+        summary: "",
+      };
+    }
   },
 );
 
