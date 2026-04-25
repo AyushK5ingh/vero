@@ -32,16 +32,53 @@ export const codeAgentFunction = inngest.createFunction(
   async ({ event, step }) => {
     const sandboxId = await step.run("get-sandbox-id", async () => {
       console.log("[codeAgentFunction] Creating sandbox...");
+      const apiKey = process.env.E2B_API_KEY;
+      const template = process.env.E2B_TEMPLATE ?? "nextjs-demo-1274";
+
+      if (!apiKey) {
+        throw new Error(
+          "E2B_API_KEY is missing. Set it in Vercel project environment variables.",
+        );
+      }
+
       try {
-        const sandbox = await Sandbox.create("nextjs-demo-1274");
+        const sandbox = await Sandbox.create(template, { apiKey });
         console.log(
           "[codeAgentFunction] Sandbox created with ID:",
           sandbox.sandboxId,
         );
         return sandbox.sandboxId;
       } catch (error) {
-        console.error("[codeAgentFunction] Failed to create sandbox:", error);
-        throw new Error("Sandbox creation failed");
+        console.error(
+          "[codeAgentFunction] Failed to create sandbox with template:",
+          template,
+          error,
+        );
+
+        // If the built-in fallback template was removed/renamed, try E2B default template.
+        if (!process.env.E2B_TEMPLATE) {
+          try {
+            const sandbox = await Sandbox.create({ apiKey });
+            console.warn(
+              "[codeAgentFunction] Fallback to default E2B template succeeded with sandbox ID:",
+              sandbox.sandboxId,
+            );
+            return sandbox.sandboxId;
+          } catch (fallbackError) {
+            const fallbackMessage =
+              fallbackError instanceof Error
+                ? fallbackError.message
+                : String(fallbackError);
+            throw new Error(
+              `Sandbox creation failed for template \"${template}\" and default template. ${fallbackMessage}`,
+            );
+          }
+        }
+
+        const message = error instanceof Error ? error.message : String(error);
+        throw new Error(
+          `Sandbox creation failed for template \"${template}\": ${message}`,
+        );
       }
     });
 
