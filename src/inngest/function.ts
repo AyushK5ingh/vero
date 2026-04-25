@@ -122,7 +122,7 @@ export const codeAgentFunction = inngest.createFunction(
     console.log("[codeAgentFunction] Initializing agent network...");
 
     const codeAgent = createAgent<AgentState>({
-      name: "code-agent",
+      name: "code-agent-main",
       description: "An expert coding agent",
       system: PROMPT,
       model: githubOpenAI,
@@ -232,7 +232,7 @@ export const codeAgentFunction = inngest.createFunction(
     });
 
     const network = createNetwork<AgentState>({
-      name: "coding-agent-network",
+      name: "code-agent-network-main",
       agents: [codeAgent],
       maxIter: 15,
       defaultState: state,
