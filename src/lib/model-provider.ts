@@ -1,8 +1,4 @@
-type ProviderKeySource =
-  | "BEDROCK_API_KEY"
-  | "AWS_API_KEY"
-  | "AI_API_KEY"
-  | "GITHUB_TOKEN";
+type ProviderKeySource = "AWS_API_KEY" | "AI_API_KEY" | "GITHUB_TOKEN";
 
 export interface ModelProviderConfig {
   apiKey: string;
@@ -12,10 +8,6 @@ export interface ModelProviderConfig {
 }
 
 function getApiKeySource(): ProviderKeySource | null {
-  if (process.env.BEDROCK_API_KEY) {
-    return "BEDROCK_API_KEY";
-  }
-
   if (process.env.AWS_API_KEY) {
     return "AWS_API_KEY";
   }
@@ -36,7 +28,7 @@ export function getModelProviderConfig(): ModelProviderConfig {
 
   if (!source) {
     throw new Error(
-      "Missing model API key. Set BEDROCK_API_KEY, AWS_API_KEY, AI_API_KEY, or GITHUB_TOKEN.",
+      "Missing model API key. Set AWS_API_KEY (preferred), AI_API_KEY, or GITHUB_TOKEN.",
     );
   }
 
@@ -49,14 +41,12 @@ export function getModelProviderConfig(): ModelProviderConfig {
   }
 
   const model =
-    process.env.BEDROCK_MODEL ||
     process.env.AWS_MODEL ||
     process.env.AI_MODEL ||
     process.env.GITHUB_MODEL ||
     "openai/gpt-4.1-mini";
 
   const baseUrl =
-    process.env.BEDROCK_BASE_URL ||
     process.env.AWS_MODELS_BASE_URL ||
     process.env.AI_BASE_URL ||
     process.env.GITHUB_MODELS_BASE_URL ||
