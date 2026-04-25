@@ -17,6 +17,10 @@ import { githubOpenAI } from "./model";
 import { string, z } from "zod";
 import { FRAGMENT_TITLE_PROMPT, PROMPT, RESPONSE_PROMPT } from "./prompt";
 import { prisma } from "@/lib/prisma";
+import {
+  getAuthorizationHeaderValue,
+  getModelProviderConfig,
+} from "@/lib/model-provider";
 // import { auth, clerkClient } from "@clerk/nextjs/server";
 
 interface AgentState {
@@ -129,24 +133,26 @@ export const codeAgentFunction = inngest.createFunction(
     // expensive agent network.  This surfaces auth / model-name / rate-limit
     // errors immediately instead of after multiple step.ai retries.
     await step.run("preflight-model-check", async () => {
-      const token = process.env.GITHUB_TOKEN;
-      const model = process.env.GITHUB_MODEL || "openai/gpt-4.1-mini";
-      const baseUrl =
-        process.env.GITHUB_MODELS_BASE_URL ||
-        "https://models.github.ai/inference";
+      const config = getModelProviderConfig();
 
-      const url = `${baseUrl.replace(/\/+$/, "")}/chat/completions`;
+      const url = `${config.baseUrl.replace(/\/+$/, "")}/chat/completions`;
 
-      console.log("[preflight] Testing model API at:", url, "model:", model);
+      console.log(
+        "[preflight] Testing model API at:",
+        url,
+        "model:",
+        config.model,
+      );
+      console.log("[preflight] API key source:", config.apiKeySource);
 
       const res = await fetch(url, {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
-          Authorization: `Bearer ${token}`,
+          Authorization: getAuthorizationHeaderValue(config.apiKey),
         },
         body: JSON.stringify({
-          model,
+          model: config.model,
           messages: [{ role: "user", content: "ping" }],
           max_tokens: 1,
         }),
@@ -535,17 +541,11 @@ export const codeAgentFunction = inngest.createFunction(
       let aiGatewayHint = message;
       if (message.includes("status code: 404")) {
         aiGatewayHint =
-          "AI gateway returned 404. Verify GITHUB_TOKEN and set GITHUB_MODEL to a valid GitHub model (for example: openai/gpt-4.1-mini).";
-      } else if (
-        message.includes("rate limit") ||
-        message.includes("429")
-      ) {
+          "AI gateway returned 404. Verify BEDROCK_API_KEY (or AWS_API_KEY / AI_API_KEY / GITHUB_TOKEN fallback), and set BEDROCK_MODEL (or AWS_MODEL / AI_MODEL / GITHUB_MODEL) to a valid model id.";
+      } else if (message.includes("rate limit") || message.includes("429")) {
         aiGatewayHint =
           "Rate limited by the AI provider. Wait a moment and try again.";
-      } else if (
-        message.includes("timeout") ||
-        message.includes("ETIMEDOUT")
-      ) {
+      } else if (message.includes("timeout") || message.includes("ETIMEDOUT")) {
         aiGatewayHint =
           "Request timed out reaching the AI provider. Check your network or try again.";
       }

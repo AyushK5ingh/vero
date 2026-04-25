@@ -1,24 +1,17 @@
 import { openai } from "@inngest/agent-kit";
+import { getModelProviderConfig } from "@/lib/model-provider";
 
 export const githubOpenAI = (() => {
-  const token = process.env.GITHUB_TOKEN;
-  const model = process.env.GITHUB_MODEL || "openai/gpt-4.1-mini";
-  const baseUrl =
-    process.env.GITHUB_MODELS_BASE_URL || "https://models.github.ai/inference";
+  const config = getModelProviderConfig();
 
-  console.log("[githubOpenAI] GITHUB_TOKEN present:", !!token);
-  console.log("[githubOpenAI] Using model:", model);
-
-  if (!token) {
-    throw new Error(
-      "Missing model token. Set GITHUB_TOKEN before running code-agent.",
-    );
-  }
+  console.log("[githubOpenAI] API key source:", config.apiKeySource);
+  console.log("[githubOpenAI] Using model:", config.model);
+  console.log("[githubOpenAI] Base URL:", config.baseUrl);
 
   return openai({
-    apiKey: token,
-    baseUrl,
-    model,
+    apiKey: config.apiKey,
+    baseUrl: config.baseUrl,
+    model: config.model,
     defaultParameters: {
       temperature: 0.1,
     },

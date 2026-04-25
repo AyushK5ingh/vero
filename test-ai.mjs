@@ -2,32 +2,40 @@ import ModelClient, { isUnexpected } from "@azure-rest/ai-inference";
 import { AzureKeyCredential } from "@azure/core-auth";
 import "dotenv/config";
 
-const token = process.env.GITHUB_TOKEN;
-const endpoint = "https://models.github.ai/inference";
-const model = "gpt-4o";
+const token =
+  process.env.AWS_API_KEY || process.env.AI_API_KEY || process.env.GITHUB_TOKEN;
+const endpoint =
+  process.env.AWS_MODELS_BASE_URL ||
+  process.env.AI_BASE_URL ||
+  process.env.GITHUB_MODELS_BASE_URL ||
+  "https://models.github.ai/inference";
+const model =
+  process.env.AWS_MODEL ||
+  process.env.AI_MODEL ||
+  process.env.GITHUB_MODEL ||
+  "openai/gpt-4.1-mini";
 
 async function testAI() {
   if (!token) {
-    console.error("GITHUB_TOKEN not found in environment");
+    console.error(
+      "Missing API key. Set AWS_API_KEY, AI_API_KEY, or GITHUB_TOKEN.",
+    );
     return;
   }
 
-  console.log("Testing GitHub AI (ESM) with model:", model);
+  console.log("Testing AI endpoint (ESM) with model:", model);
 
   try {
-    const client = ModelClient(
-      endpoint,
-      new AzureKeyCredential(token),
-    );
+    const client = ModelClient(endpoint, new AzureKeyCredential(token));
 
     const response = await client.path("/chat/completions").post({
       body: {
         messages: [
           { role: "system", content: "You are a helpful assistant." },
-          { role: "user", content: "Say 'GitHub AI is working!'" }
+          { role: "user", content: "Say 'GitHub AI is working!'" },
         ],
-        model: model
-      }
+        model: model,
+      },
     });
 
     if (isUnexpected(response)) {

@@ -36,7 +36,7 @@ Vero is an innovative AI-powered web development platform that enables users to 
 - **API**: tRPC for type-safe API calls
 - **Database**: PostgreSQL with Prisma ORM
 - **Authentication**: Clerk
-- **AI Integration**: OpenAI GPT models via GitHub AI
+- **AI Integration**: OpenAI-compatible models (AWS API key preferred)
 - **Background Jobs**: Inngest for workflow orchestration
 - **Code Execution**: E2B sandboxed environments
 
@@ -85,7 +85,7 @@ vero/
 - Node.js 18+ and pnpm
 - PostgreSQL database
 - Clerk account for authentication
-- OpenAI API key (via GitHub AI)
+- OpenAI-compatible API key (AWS API key preferred)
 - E2B account for code execution
 
 ### Installation
@@ -119,8 +119,17 @@ vero/
    NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY="your_clerk_publishable_key"
    CLERK_SECRET_KEY="your_clerk_secret_key"
 
-   # OpenAI (GitHub AI)
-   GITHUB_TOKEN="your_github_ai_token"
+   # OpenAI-compatible model provider (Bedrock preferred)
+   BEDROCK_API_KEY="your_bedrock_api_key"
+   BEDROCK_BASE_URL="https://your-bedrock-openai-compatible-endpoint"
+   BEDROCK_MODEL="your_bedrock_model_id"
+   # Additional options:
+   AWS_API_KEY="your_aws_api_key"
+   # Optional fallbacks and overrides:
+   # AI_API_KEY="your_generic_model_api_key"
+   # GITHUB_TOKEN="your_github_models_token"
+   # AWS_MODELS_BASE_URL="https://your-openai-compatible-endpoint"
+   # AWS_MODEL="openai/gpt-4.1-mini"
 
    # E2B
    E2B_API_KEY="your_e2b_api_key"
