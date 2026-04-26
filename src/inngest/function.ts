@@ -13,7 +13,7 @@ import {
   type Message,
   createState,
 } from "@inngest/agent-kit";
-import { bedrockModel } from "./model";
+import { getBedrockModel } from "./model";
 import { string, z } from "zod";
 import { FRAGMENT_TITLE_PROMPT, PROMPT, RESPONSE_PROMPT } from "./prompt";
 import { prisma } from "@/lib/prisma";
@@ -169,6 +169,8 @@ export const codeAgentFunction = inngest.createFunction(
     });
 
     console.log("[codeAgentFunction] Initializing agent network...");
+
+    const bedrockModel = getBedrockModel();
 
     const codeAgent = createAgent<AgentState>({
       name: `code-agent-main-${runNonce}`,

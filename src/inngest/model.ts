@@ -1,7 +1,7 @@
 import { openai } from "@inngest/agent-kit";
 import { getModelProviderConfig } from "@/lib/model-provider";
 
-export const bedrockModel = (() => {
+export function getBedrockModel() {
   const config = getModelProviderConfig();
 
   console.log("[bedrockModel] API key source:", config.apiKeySource);
@@ -16,4 +16,4 @@ export const bedrockModel = (() => {
       temperature: 0.1,
     },
   });
-})();
+}
