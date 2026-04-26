@@ -43,6 +43,47 @@ export const codeAgentFunction = inngest.createFunction(
     triggers: [{ event: "code-agent/run" }],
   },
   async ({ event, step }) => {
+    const runLockKey = `code-agent:${event.id || event.data.projectId || "default"}`;
+    let runLockAcquired = false;
+
+    const releaseRunLock = async () => {
+      if (!runLockAcquired) {
+        return;
+      }
+
+      await step.run("release-run-lock", async () => {
+        await prisma.$queryRaw`
+          SELECT pg_advisory_unlock(hashtext(${runLockKey}))
+        `;
+
+        return true;
+      });
+
+      runLockAcquired = false;
+    };
+
+    runLockAcquired = await step.run("acquire-run-lock", async () => {
+      const rows = await prisma.$queryRaw<Array<{ locked: boolean }>>`
+        SELECT pg_try_advisory_lock(hashtext(${runLockKey})) AS locked
+      `;
+
+      return rows[0]?.locked ?? false;
+    });
+
+    if (!runLockAcquired) {
+      console.log(
+        "[codeAgentFunction] Duplicate run detected, skipping event:",
+        runLockKey,
+      );
+
+      return {
+        url: null,
+        title: "Skipped",
+        files: {},
+        summary: "",
+      };
+    }
+
     const sandboxId = await step.run("get-sandbox-id", async () => {
       console.log("[codeAgentFunction] Creating sandbox...");
       const apiKey = process.env.E2B_API_KEY;
@@ -516,6 +557,8 @@ export const codeAgentFunction = inngest.createFunction(
       const summaryForPostProcessing =
         result.state.data.summary?.trim() || networkAssistantOutput;
 
+      result.state.data.summary = summaryForPostProcessing;
+
       const { output: fragmentTitleOutput } = await fragmentTitleGenerator.run(
         summaryForPostProcessing,
       );
@@ -555,6 +598,8 @@ export const codeAgentFunction = inngest.createFunction(
             },
           });
         }
+
+        await releaseRunLock();
 
         return await prisma.message.create({
           data: {
@@ -623,6 +668,8 @@ export const codeAgentFunction = inngest.createFunction(
           },
         });
       });
+
+      await releaseRunLock();
 
       return {
         url: null,
