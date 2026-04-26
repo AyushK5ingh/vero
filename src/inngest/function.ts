@@ -290,10 +290,12 @@ export const codeAgentFunction = inngest.createFunction(
           const lastAssistantMessageText =
             lastAssistantTextMessageContent(result);
 
-          if (lastAssistantMessageText && network) {
-            if (lastAssistantMessageText.includes("<task_summary>")) {
-              network.state.data.summary = lastAssistantMessageText;
-            }
+          if (
+            lastAssistantMessageText &&
+            network &&
+            !network.state.data.summary
+          ) {
+            network.state.data.summary = lastAssistantMessageText;
           }
           return result;
         },
@@ -303,11 +305,13 @@ export const codeAgentFunction = inngest.createFunction(
     const network = createNetwork<AgentState>({
       name: `code-agent-network-main-${runNonce}`,
       agents: [codeAgent],
-      maxIter: 15,
+      maxIter: 6,
       defaultState: state,
       router: async ({ network }) => {
         const summary = network.state.data.summary;
-        if (summary) {
+        const hasFiles = Object.keys(network.state.data.files || {}).length > 0;
+
+        if (summary || hasFiles) {
           return;
         }
 
