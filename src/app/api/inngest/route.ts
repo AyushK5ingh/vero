@@ -1,12 +1,26 @@
-import { serve } from "inngest/next";
-import { inngest } from "../../../inngest/client";
-import { codeAgentFunction } from "@/inngest/function";
-import { bedrockGenerateFunction } from "@/inngest/bedrock-function";
+import { inngest } from "../../../inngest/client"; // Adjust path if needed
+import { bedrock } from '@ai-sdk/amazon-bedrock';
+import { generateText } from 'ai'; 
 
-// This endpoint can run for a maximum of 300 seconds on Vercel.
-export const maxDuration = 300;
+export const bedrockGenerateFunction = inngest.createFunction(
+  { 
+    id: "bedrock-agent",
+    // ✅ The trigger is now inside the first argument
+    triggers: [{ event: "app/run-agent" }] 
+  },
+  // ✅ This is now the second argument, and TypeScript will correctly type 'event' and 'step'
+  async ({ event, step }) => {
+    
+    const result = await step.run("call-llama3-on-bedrock", async () => {
+      
+      const { text } = await generateText({
+        model: bedrock('meta.llama3-70b-instruct-v1:0'),
+        prompt: "Your system prompt and user input here",
+      });
 
-export const { GET, POST, PUT } = serve({
-  client: inngest,
-  functions: [codeAgentFunction, bedrockGenerateFunction],
-});
+      return text;
+    });
+
+    return { data: result };
+  }
+);
