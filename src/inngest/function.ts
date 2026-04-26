@@ -28,6 +28,13 @@ interface AgentState {
   files: { [path: string]: string };
 }
 
+function redactSensitiveText(input: string): string {
+  return input
+    .replace(/(authorization["']?\s*[:=]\s*["']?)(bearer\s+)?[^\s"',}]+/gi, "$1[REDACTED]")
+    .replace(/(x-api-key["']?\s*[:=]\s*["']?)[^\s"',}]+/gi, "$1[REDACTED]")
+    .replace(/(api[_-]?key["']?\s*[:=]\s*["']?)[^\s"',}]+/gi, "$1[REDACTED]");
+}
+
 export const codeAgentFunction = inngest.createFunction(
   {
     id: "code-agent",
@@ -159,8 +166,9 @@ export const codeAgentFunction = inngest.createFunction(
 
       if (!res.ok) {
         const body = await res.text().catch(() => "");
+        const safeBody = redactSensitiveText(body).slice(0, 500);
         throw new Error(
-          `Model API preflight failed (${res.status} ${res.statusText}): ${body.slice(0, 500)}`,
+          `Model API preflight failed (${res.status} ${res.statusText}): ${safeBody}`,
         );
       }
 

@@ -1,13 +1,12 @@
 // Quick test script for OpenAI-compatible model API keys
-// Usage: set AWS_API_KEY (or AI_API_KEY / GITHUB_TOKEN) and run: node test-token.mjs
+// Usage: set AI_API_KEY (or AWS_API_KEY / GITHUB_TOKEN) and run: node test-token.mjs
 
 const token =
-  process.argv[2] ||
-  process.env.AWS_API_KEY ||
   process.env.AI_API_KEY ||
+  process.env.AWS_API_KEY ||
   process.env.GITHUB_TOKEN;
 const model =
-  process.argv[3] ||
+  process.argv[2] ||
   process.env.AWS_MODEL ||
   process.env.AI_MODEL ||
   process.env.GITHUB_MODEL ||
@@ -19,11 +18,12 @@ const baseUrl =
   "https://models.github.ai/inference";
 
 if (!token) {
-  console.error("Usage: node test-token.mjs <API_KEY> [model]");
+  console.error(
+    "Missing API key. Set AI_API_KEY (preferred), AWS_API_KEY, or GITHUB_TOKEN.",
+  );
   process.exit(1);
 }
 
-console.log("Token prefix:", token.slice(0, 20) + "...");
 console.log("Model:", model);
 console.log("URL:", `${baseUrl}/chat/completions`);
 console.log("---");

@@ -40,12 +40,22 @@ function validateModelBaseUrl(baseUrl: string): string {
 }
 
 function getApiKeySource(): ProviderKeySource | null {
-  if (process.env.AWS_API_KEY) {
-    return "AWS_API_KEY";
+  const aiApiKey = process.env.AI_API_KEY?.trim();
+  const awsApiKey = process.env.AWS_API_KEY?.trim();
+
+  if (aiApiKey && awsApiKey && aiApiKey !== awsApiKey) {
+    throw new Error(
+      "Conflicting model API keys detected. Set only AI_API_KEY (preferred) or ensure AWS_API_KEY matches it exactly.",
+    );
   }
 
-  if (process.env.AI_API_KEY) {
+  // Deterministic policy: AI_API_KEY is canonical; AWS_API_KEY remains a legacy alias.
+  if (aiApiKey) {
     return "AI_API_KEY";
+  }
+
+  if (awsApiKey) {
+    return "AWS_API_KEY";
   }
 
   return null;
@@ -60,7 +70,7 @@ export function getModelProviderConfig(): ModelProviderConfig {
     );
   }
 
-  const apiKey = process.env[source];
+  const apiKey = process.env[source]?.trim();
 
   if (!apiKey) {
     throw new Error(

@@ -34,6 +34,13 @@ class BedrockRequestError extends Error {
   }
 }
 
+function redactSensitiveText(input: string): string {
+  return input
+    .replace(/(authorization["']?\s*[:=]\s*["']?)(bearer\s+)?[^\s"',}]+/gi, "$1[REDACTED]")
+    .replace(/(x-api-key["']?\s*[:=]\s*["']?)[^\s"',}]+/gi, "$1[REDACTED]")
+    .replace(/(api[_-]?key["']?\s*[:=]\s*["']?)[^\s"',}]+/gi, "$1[REDACTED]");
+}
+
 export class BedrockAuthError extends BedrockRequestError {
   constructor(message: string, responseBody?: string) {
     super(message, 401, responseBody);
@@ -125,11 +132,12 @@ export async function generateBedrockText(
   });
 
   const rawBody = await response.text();
+  const safeBody = redactSensitiveText(rawBody);
 
   if (response.status === 401) {
     throw new BedrockAuthError(
       "AWS Bedrock authentication failed (401 Unauthorized). Ensure AI_API_KEY is set in production and valid.",
-      rawBody,
+      safeBody,
     );
   }
 
@@ -137,7 +145,7 @@ export async function generateBedrockText(
     throw new BedrockRequestError(
       `AWS Bedrock request failed with status ${response.status}.`,
       response.status,
-      rawBody,
+      safeBody,
     );
   }
 
@@ -148,7 +156,7 @@ export async function generateBedrockText(
     throw new BedrockRequestError(
       "AWS Bedrock returned a non-JSON response.",
       response.status,
-      rawBody,
+      safeBody,
     );
   }
 
@@ -166,7 +174,7 @@ export async function generateBedrockText(
     throw new BedrockRequestError(
       "AWS Bedrock response did not contain assistant text.",
       response.status,
-      rawBody,
+      safeBody,
     );
   }
 
