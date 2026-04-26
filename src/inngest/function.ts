@@ -603,6 +603,12 @@ export const codeAgentFunction = inngest.createFunction(
       if (message.includes("status code: 404")) {
         aiGatewayHint =
           "AI gateway returned 404. Verify AI_API_KEY (or AWS_API_KEY alias), AI_BASE_URL, and AI_MODEL for AWS Bedrock.";
+      } else if (
+        message.includes("ENOTFOUND") ||
+        message.includes("getaddrinfo")
+      ) {
+        aiGatewayHint =
+          "AI endpoint hostname could not be resolved. AI_BASE_URL appears invalid or still a placeholder. Set AI_BASE_URL to your real Bedrock OpenAI-compatible endpoint.";
       } else if (message.includes("rate limit") || message.includes("429")) {
         aiGatewayHint =
           "Rate limited by the AI provider. Wait a moment and try again.";
