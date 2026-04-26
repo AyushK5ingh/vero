@@ -1,4 +1,6 @@
 import "server-only";
+import { createAmazonBedrock } from "@ai-sdk/amazon-bedrock";
+import { generateText } from "ai";
 
 const DEFAULT_BEDROCK_MODEL = "meta.llama3-70b-instruct-v1:0";
 const DEFAULT_BEDROCK_REGION = "ap-south-1";
@@ -8,7 +10,6 @@ export interface BedrockClientConfig {
   baseUrl: string;
   model: string;
   region: string;
-  authScheme: string;
 }
 
 export interface BedrockGenerateTextInput {
@@ -34,13 +35,6 @@ class BedrockRequestError extends Error {
   }
 }
 
-function redactSensitiveText(input: string): string {
-  return input
-    .replace(/(authorization["']?\s*[:=]\s*["']?)(bearer\s+)?[^\s"',}]+/gi, "$1[REDACTED]")
-    .replace(/(x-api-key["']?\s*[:=]\s*["']?)[^\s"',}]+/gi, "$1[REDACTED]")
-    .replace(/(api[_-]?key["']?\s*[:=]\s*["']?)[^\s"',}]+/gi, "$1[REDACTED]");
-}
-
 export class BedrockAuthError extends BedrockRequestError {
   constructor(message: string, responseBody?: string) {
     super(message, 401, responseBody);
@@ -52,19 +46,11 @@ function normalizeBaseUrl(baseUrl: string): string {
   return baseUrl.replace(/\/+$/, "");
 }
 
-function getChatCompletionsUrl(baseUrl: string): string {
-  const normalized = normalizeBaseUrl(baseUrl);
-  return normalized.endsWith("/v1")
-    ? `${normalized}/chat/completions`
-    : `${normalized}/v1/chat/completions`;
-}
-
 export function getBedrockClientConfig(): BedrockClientConfig {
   const apiKey = process.env.AI_API_KEY?.trim() || "";
   const baseUrl = process.env.AI_BASE_URL?.trim() || "";
   const model = process.env.AI_MODEL?.trim() || DEFAULT_BEDROCK_MODEL;
   const region = process.env.AWS_REGION?.trim() || DEFAULT_BEDROCK_REGION;
-  const authScheme = process.env.AI_AUTH_SCHEME?.trim() || "Bearer";
 
   if (!apiKey) {
     throw new Error("Missing AI_API_KEY for AWS Bedrock.");
@@ -90,10 +76,10 @@ export function getBedrockClientConfig(): BedrockClientConfig {
   const host = parsedBaseUrl.hostname.toLowerCase();
   if (
     host.includes("your-bedrock-endpoint") ||
-    host.includes("your-bedrock-openai-compatible-endpoint")
+    host.includes("your-bedrock-api-endpoint")
   ) {
     throw new Error(
-      "AI_BASE_URL is still a placeholder. Set it to your real AWS Bedrock gateway endpoint.",
+      "AI_BASE_URL is still a placeholder. Set it to your real AWS Bedrock endpoint.",
     );
   }
 
@@ -102,7 +88,6 @@ export function getBedrockClientConfig(): BedrockClientConfig {
     baseUrl,
     model,
     region,
-    authScheme,
   };
 }
 
@@ -111,75 +96,52 @@ export async function generateBedrockText(
 ): Promise<BedrockGenerateTextOutput> {
   const config = getBedrockClientConfig();
 
-  const response = await fetch(getChatCompletionsUrl(config.baseUrl), {
-    method: "POST",
-    headers: {
-      "Content-Type": "application/json",
-      Authorization: `${config.authScheme} ${config.apiKey}`.trim(),
-      "x-amz-region": config.region,
-    },
-    body: JSON.stringify({
-      model: config.model,
-      messages: [
-        ...(input.systemPrompt
-          ? [{ role: "system", content: input.systemPrompt }]
-          : []),
-        { role: "user", content: input.prompt },
-      ],
-      max_tokens: input.maxTokens ?? 1024,
-      temperature: input.temperature ?? 0.2,
-    }),
+  const bedrockProvider = createAmazonBedrock({
+    apiKey: config.apiKey,
+    region: config.region,
+    baseURL: normalizeBaseUrl(config.baseUrl),
   });
 
-  const rawBody = await response.text();
-  const safeBody = redactSensitiveText(rawBody);
-
-  if (response.status === 401) {
-    throw new BedrockAuthError(
-      "AWS Bedrock authentication failed (401 Unauthorized). Ensure AI_API_KEY is set in production and valid.",
-      safeBody,
-    );
-  }
-
-  if (!response.ok) {
-    throw new BedrockRequestError(
-      `AWS Bedrock request failed with status ${response.status}.`,
-      response.status,
-      safeBody,
-    );
-  }
-
-  let parsed: unknown;
   try {
-    parsed = JSON.parse(rawBody);
-  } catch {
+    const result = await generateText({
+      model: bedrockProvider(config.model),
+      system: input.systemPrompt,
+      prompt: input.prompt,
+      maxOutputTokens: input.maxTokens ?? 1024,
+      temperature: input.temperature ?? 0.2,
+    });
+
+    const text = result.text.trim();
+
+    if (!text) {
+      throw new BedrockRequestError(
+        "AWS Bedrock response did not contain assistant text.",
+        502,
+      );
+    }
+
+    return {
+      text,
+      model: config.model,
+    };
+  } catch (error) {
+    if (
+      error instanceof BedrockAuthError ||
+      error instanceof BedrockRequestError
+    ) {
+      throw error;
+    }
+
+    const message = error instanceof Error ? error.message : String(error);
+    if (/401|unauthori[sz]ed/i.test(message)) {
+      throw new BedrockAuthError(
+        "AWS Bedrock authentication failed (401 Unauthorized). Ensure AI_API_KEY is set in production and valid.",
+      );
+    }
+
     throw new BedrockRequestError(
-      "AWS Bedrock returned a non-JSON response.",
-      response.status,
-      safeBody,
+      `AWS Bedrock request failed: ${message}`,
+      500,
     );
   }
-
-  const candidate =
-    typeof parsed === "object" && parsed !== null
-      ? (
-          parsed as {
-            choices?: Array<{ message?: { content?: string } }>;
-          }
-        ).choices?.[0]?.message?.content
-      : undefined;
-
-  const text = typeof candidate === "string" ? candidate.trim() : "";
-  if (!text) {
-    throw new BedrockRequestError(
-      "AWS Bedrock response did not contain assistant text.",
-      response.status,
-      safeBody,
-    );
-  }
-
-  return {
-    text,
-    model: config.model,
-  };
 }

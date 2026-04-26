@@ -28,11 +28,11 @@ function validateModelBaseUrl(baseUrl: string): string {
   const host = parsed.hostname.toLowerCase();
   if (
     host.includes("your-bedrock-endpoint") ||
-    host.includes("your-bedrock-openai-compatible-endpoint") ||
-    host.includes("your-openai-compatible-endpoint")
+    host.includes("your-bedrock-api-endpoint") ||
+    host.includes("your-api-endpoint")
   ) {
     throw new Error(
-      "AI_BASE_URL is still a placeholder. Set it to your real Bedrock OpenAI-compatible endpoint.",
+      "AI_BASE_URL is still a placeholder. Set it to your real AWS Bedrock endpoint.",
     );
   }
 

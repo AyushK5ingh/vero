@@ -17,10 +17,8 @@ import { getBedrockModel } from "./model";
 import { string, z } from "zod";
 import { FRAGMENT_TITLE_PROMPT, PROMPT, RESPONSE_PROMPT } from "./prompt";
 import { prisma } from "@/lib/prisma";
-import {
-  getAuthorizationHeaderValue,
-  getModelProviderConfig,
-} from "@/lib/model-provider";
+import { getModelProviderConfig } from "@/lib/model-provider";
+import { generateBedrockText } from "@/lib/bedrock-client";
 // import { auth, clerkClient } from "@clerk/nextjs/server";
 
 interface AgentState {
@@ -30,7 +28,10 @@ interface AgentState {
 
 function redactSensitiveText(input: string): string {
   return input
-    .replace(/(authorization["']?\s*[:=]\s*["']?)(bearer\s+)?[^\s"',}]+/gi, "$1[REDACTED]")
+    .replace(
+      /(authorization["']?\s*[:=]\s*["']?)(bearer\s+)?[^\s"',}]+/gi,
+      "$1[REDACTED]",
+    )
     .replace(/(x-api-key["']?\s*[:=]\s*["']?)[^\s"',}]+/gi, "$1[REDACTED]")
     .replace(/(api[_-]?key["']?\s*[:=]\s*["']?)[^\s"',}]+/gi, "$1[REDACTED]");
 }
@@ -141,38 +142,16 @@ export const codeAgentFunction = inngest.createFunction(
     await step.run("preflight-model-check", async () => {
       const config = getModelProviderConfig();
 
-      const url = `${config.baseUrl.replace(/\/+$/, "")}/chat/completions`;
-
-      console.log(
-        "[preflight] Testing model API at:",
-        url,
-        "model:",
-        config.model,
-      );
+      console.log("[preflight] Testing Bedrock model:", config.model);
       console.log("[preflight] API key source:", config.apiKeySource);
 
-      const res = await fetch(url, {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          Authorization: getAuthorizationHeaderValue(config.apiKey),
-        },
-        body: JSON.stringify({
-          model: config.model,
-          messages: [{ role: "user", content: "ping" }],
-          max_tokens: 1,
-        }),
+      await generateBedrockText({
+        prompt: "ping",
+        maxTokens: 1,
+        temperature: 0,
       });
 
-      if (!res.ok) {
-        const body = await res.text().catch(() => "");
-        const safeBody = redactSensitiveText(body).slice(0, 500);
-        throw new Error(
-          `Model API preflight failed (${res.status} ${res.statusText}): ${safeBody}`,
-        );
-      }
-
-      console.log("[preflight] Model API is reachable ✓");
+      console.log("[preflight] Bedrock model is reachable ✓");
       return true;
     });
 
@@ -618,7 +597,7 @@ export const codeAgentFunction = inngest.createFunction(
         message.includes("getaddrinfo")
       ) {
         aiGatewayHint =
-          "AI endpoint hostname could not be resolved. AI_BASE_URL appears invalid or still a placeholder. Set AI_BASE_URL to your real Bedrock OpenAI-compatible endpoint.";
+          "AI endpoint hostname could not be resolved. AI_BASE_URL appears invalid or still a placeholder. Set AI_BASE_URL to your real AWS Bedrock endpoint.";
       } else if (message.includes("rate limit") || message.includes("429")) {
         aiGatewayHint =
           "Rate limited by the AI provider. Wait a moment and try again.";
