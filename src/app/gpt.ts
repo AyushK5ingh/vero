@@ -1,34 +1,17 @@
 "use server";
 
-import OpenAI from "openai";
-import {
-  getAuthorizationHeaderValue,
-  getModelProviderConfig,
-} from "@/lib/model-provider";
+import { generateBedrockText } from "@/lib/bedrock-client";
 
 export async function askAI(systemPrompt: string, userQuery: string) {
-  const config = getModelProviderConfig();
-
   try {
-    const client = new OpenAI({
-      apiKey: config.apiKey,
-      baseURL: config.baseUrl,
-      defaultHeaders: {
-        Authorization: getAuthorizationHeaderValue(config.apiKey),
-      },
+    const response = await generateBedrockText({
+      prompt: userQuery,
+      systemPrompt,
+      temperature: 0.2,
+      maxTokens: 1024,
     });
 
-    const response = await client.chat.completions.create({
-      messages: [
-        { role: "system", content: systemPrompt },
-        { role: "user", content: userQuery },
-      ],
-      temperature: 1,
-      top_p: 1,
-      model: config.model,
-    });
-
-    const content = response.choices[0]?.message?.content ?? "";
+    const content = response.text;
     console.log("AI Response:", content);
 
     return {

@@ -13,7 +13,7 @@ import {
   type Message,
   createState,
 } from "@inngest/agent-kit";
-import { githubOpenAI } from "./model";
+import { bedrockModel } from "./model";
 import { string, z } from "zod";
 import { FRAGMENT_TITLE_PROMPT, PROMPT, RESPONSE_PROMPT } from "./prompt";
 import { prisma } from "@/lib/prisma";
@@ -174,7 +174,7 @@ export const codeAgentFunction = inngest.createFunction(
       name: `code-agent-main-${runNonce}`,
       description: "An expert coding agent",
       system: PROMPT,
-      model: githubOpenAI,
+      model: bedrockModel,
       tools: [
         createTool({
           name: "Terminal",
@@ -494,14 +494,14 @@ export const codeAgentFunction = inngest.createFunction(
         name: `fragment-title-generator-${runNonce}`,
         description: "A fragment title generator",
         system: FRAGMENT_TITLE_PROMPT,
-        model: githubOpenAI,
+        model: bedrockModel,
       });
 
       const responseGenerator = createAgent({
         name: `response-generator-${runNonce}`,
         description: "A response generator",
         system: RESPONSE_PROMPT,
-        model: githubOpenAI,
+        model: bedrockModel,
       });
 
       const outputMessages = Array.isArray((result as any).output)
@@ -602,7 +602,7 @@ export const codeAgentFunction = inngest.createFunction(
       let aiGatewayHint = message;
       if (message.includes("status code: 404")) {
         aiGatewayHint =
-          "AI gateway returned 404. Verify AWS_API_KEY (or AI_API_KEY / GITHUB_TOKEN fallback), and set AWS_MODEL (or AI_MODEL / GITHUB_MODEL) to a valid model id (for example: openai/gpt-4.1-mini).";
+          "AI gateway returned 404. Verify AI_API_KEY (or AWS_API_KEY alias), AI_BASE_URL, and AI_MODEL for AWS Bedrock.";
       } else if (message.includes("rate limit") || message.includes("429")) {
         aiGatewayHint =
           "Rate limited by the AI provider. Wait a moment and try again.";

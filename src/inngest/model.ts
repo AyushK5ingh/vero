@@ -1,12 +1,12 @@
 import { openai } from "@inngest/agent-kit";
 import { getModelProviderConfig } from "@/lib/model-provider";
 
-export const githubOpenAI = (() => {
+export const bedrockModel = (() => {
   const config = getModelProviderConfig();
 
-  console.log("[githubOpenAI] API key source:", config.apiKeySource);
-  console.log("[githubOpenAI] Using model:", config.model);
-  console.log("[githubOpenAI] Base URL:", config.baseUrl);
+  console.log("[bedrockModel] API key source:", config.apiKeySource);
+  console.log("[bedrockModel] Using model:", config.model);
+  console.log("[bedrockModel] Base URL:", config.baseUrl);
 
   return openai({
     apiKey: config.apiKey,

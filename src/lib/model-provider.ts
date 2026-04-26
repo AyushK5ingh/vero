@@ -1,4 +1,4 @@
-type ProviderKeySource = "AWS_API_KEY" | "AI_API_KEY" | "GITHUB_TOKEN";
+type ProviderKeySource = "AWS_API_KEY" | "AI_API_KEY";
 
 export interface ModelProviderConfig {
   apiKey: string;
@@ -16,13 +16,6 @@ function getApiKeySource(): ProviderKeySource | null {
     return "AI_API_KEY";
   }
 
-  const allowGithubFallback =
-    process.env.ALLOW_GITHUB_TOKEN_FALLBACK === "true";
-
-  if (allowGithubFallback && process.env.GITHUB_TOKEN) {
-    return "GITHUB_TOKEN";
-  }
-
   return null;
 }
 
@@ -31,7 +24,7 @@ export function getModelProviderConfig(): ModelProviderConfig {
 
   if (!source) {
     throw new Error(
-      "Missing model API key. Set AWS_API_KEY (preferred) or AI_API_KEY. To allow GITHUB_TOKEN fallback, set ALLOW_GITHUB_TOKEN_FALLBACK=true.",
+      "Missing model API key. Set AI_API_KEY (preferred) or AWS_API_KEY.",
     );
   }
 
@@ -46,26 +39,18 @@ export function getModelProviderConfig(): ModelProviderConfig {
   const model =
     process.env.AI_MODEL ||
     process.env.AWS_MODEL ||
-    process.env.GITHUB_MODEL ||
-    "openai/gpt-4.1-mini";
+    "meta.llama3-70b-instruct-v1:0";
 
   const baseUrl =
     source === "AWS_API_KEY"
-      ? process.env.AWS_MODELS_BASE_URL ||
-        process.env.AI_BASE_URL ||
-        process.env.GITHUB_MODELS_BASE_URL ||
-        "https://models.github.ai/inference"
+      ? process.env.AWS_MODELS_BASE_URL || process.env.AI_BASE_URL || ""
       : source === "AI_API_KEY"
-        ? process.env.AI_BASE_URL ||
-          process.env.AWS_MODELS_BASE_URL ||
-          process.env.GITHUB_MODELS_BASE_URL ||
-          "https://models.github.ai/inference"
-        : process.env.GITHUB_MODELS_BASE_URL ||
-          "https://models.github.ai/inference";
+        ? process.env.AI_BASE_URL || process.env.AWS_MODELS_BASE_URL || ""
+        : "";
 
   if (!baseUrl) {
     throw new Error(
-      `Missing model base URL for ${source}. Set AWS_MODELS_BASE_URL, AI_BASE_URL, or GITHUB_MODELS_BASE_URL.`,
+      `Missing model base URL for ${source}. Set AI_BASE_URL (preferred) or AWS_MODELS_BASE_URL.`,
     );
   }
 
