@@ -7,6 +7,38 @@ export interface ModelProviderConfig {
   baseUrl: string;
 }
 
+function validateModelBaseUrl(baseUrl: string): string {
+  const trimmed = baseUrl.trim();
+
+  let parsed: URL;
+  try {
+    parsed = new URL(trimmed);
+  } catch {
+    throw new Error(
+      "Invalid AI base URL. Set AI_BASE_URL (or AWS_MODELS_BASE_URL) to a valid HTTPS URL.",
+    );
+  }
+
+  if (parsed.protocol !== "https:") {
+    throw new Error(
+      "Invalid AI base URL. HTTPS is required for AI_BASE_URL/AWS_MODELS_BASE_URL.",
+    );
+  }
+
+  const host = parsed.hostname.toLowerCase();
+  if (
+    host.includes("your-bedrock-endpoint") ||
+    host.includes("your-bedrock-openai-compatible-endpoint") ||
+    host.includes("your-openai-compatible-endpoint")
+  ) {
+    throw new Error(
+      "AI_BASE_URL is still a placeholder. Set it to your real Bedrock OpenAI-compatible endpoint.",
+    );
+  }
+
+  return trimmed;
+}
+
 function getApiKeySource(): ProviderKeySource | null {
   if (process.env.AWS_API_KEY) {
     return "AWS_API_KEY";
@@ -54,11 +86,13 @@ export function getModelProviderConfig(): ModelProviderConfig {
     );
   }
 
+  const validatedBaseUrl = validateModelBaseUrl(baseUrl);
+
   return {
     apiKey,
     apiKeySource: source,
     model,
-    baseUrl,
+    baseUrl: validatedBaseUrl,
   };
 }
 

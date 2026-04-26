@@ -638,20 +638,3 @@ export const codeAgentFunction = inngest.createFunction(
     }
   },
 );
-
-// export const deploymentAgentFunction = inngest.createFunction(
-//   { id : "Deploy-Code-Agent"},
-//   { event : "Deploy-Code-Agent/run"},
-//   async({event , steps}) => {
-//     const { userId } = await auth()
-//       if (!userId) {
-//            return;
-//       }
-//       // @ts-ignore
-//     const user = await clerkClient.users.getUser(userId)
-//       // @ts-ignore
-//     const githubTokens = await clerkClient.users.getUserOauthAccessToken(userId, "github");
-
-//     console.log(user , githubTokens)
-//   }
-// )

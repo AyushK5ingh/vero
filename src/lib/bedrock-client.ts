@@ -67,6 +67,29 @@ export function getBedrockClientConfig(): BedrockClientConfig {
     throw new Error("Missing AI_BASE_URL for AWS Bedrock.");
   }
 
+  let parsedBaseUrl: URL;
+  try {
+    parsedBaseUrl = new URL(baseUrl);
+  } catch {
+    throw new Error(
+      "Invalid AI_BASE_URL. Provide a valid HTTPS URL for your Bedrock gateway.",
+    );
+  }
+
+  if (parsedBaseUrl.protocol !== "https:") {
+    throw new Error("Invalid AI_BASE_URL. HTTPS is required.");
+  }
+
+  const host = parsedBaseUrl.hostname.toLowerCase();
+  if (
+    host.includes("your-bedrock-endpoint") ||
+    host.includes("your-bedrock-openai-compatible-endpoint")
+  ) {
+    throw new Error(
+      "AI_BASE_URL is still a placeholder. Set it to your real AWS Bedrock gateway endpoint.",
+    );
+  }
+
   return {
     apiKey,
     baseUrl,
